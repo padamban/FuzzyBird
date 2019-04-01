@@ -87,7 +87,6 @@ Tubes.FrontP = 1;              % 1-3
 Tubes.ScreenX = [300 380 460]-2; % The middle of each tube
 Tubes.VOffset = ceil(rand(1,3)*105); 
 
-Best = 0;
 %% -- Game Logic --
 initVariables();
 initWindow();
@@ -105,6 +104,7 @@ gameover = false;
 stageStartTime = tic;
 while 1
     loops = 0;
+    sY = Bird.SpeedY 
     curTime = toc(stageStartTime);
     while (curTime >= ((CurrentFrameNo) * GAME.FRAME_DURATION) && loops < GAME.MAX_FRAME_SKIP)
         
@@ -117,6 +117,7 @@ while 1
                     Flags.PreGame = false;                    
                     Bird.ScrollX = 0;
                 end
+                
             else
                 if Bird.SpeedY < 0
                     Bird.SpeedY = 0;
@@ -235,7 +236,6 @@ end
         
         SinY = Bird.OSCIL_RANGE(1) + sin(linspace(0, 2*pi, SinYRange))* Bird.OSCIL_RANGE(2);
         SinYPos = 1;
-        Best = Sprites.Best;    % Best Score
     end
 
 %% --- Graphics Section ---
@@ -293,9 +293,7 @@ end
             'EdgeColor','none', ...
             'Visible','on', ...
             'Parent', MainAxesHdl);
-        FloorSpriteHdl = image([0], [0],[],...
-            'Parent', FloorAxesHdl, ...
-            'Visible', 'on ');
+        FloorSpriteHdl = image([0], [0],[],'Parent', FloorAxesHdl,'Visible', 'on ');
        
         end
     function initGame()

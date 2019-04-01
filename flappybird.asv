@@ -33,8 +33,6 @@ MainCanvasHdl = [];
 BirdSpriteHdl = [];
 TubeSpriteHdl = [];
 FloorSpriteHdl = [];
-ScoreInfoHdl = [];
-GameOverHdl = [];
 FloorAxesHdl = [];
 %% Game Parameters
 MainFigureInitPos = [];
@@ -84,7 +82,6 @@ SinYRange = 44;
 SinYPos = [];
 SinY = [];
 
-Score = 0;
 
 Tubes.FrontP = 1;              % 1-3
 Tubes.ScreenX = [300 380 460]-2; % The middle of each tube
@@ -135,7 +132,6 @@ while 1
                 scrollTubes(1);
             end
         end
-        addScore;
         Bird.CurFrame = 3 - floor(double(mod(CurrentFrameNo, 9))/3);
 
       %% Cycling the Palette
@@ -177,22 +173,6 @@ while 1
 
     end
     if fall_to_bottom
-        if Score > Best
-            Best = Score;
-            
-            for i_save = 1:4     % Try saving four times if error occurs
-                try
-                    save sprites2.mat Best -append
-                    break;
-                catch
-                    continue;
-                end
-            end     % If the error still persist even after four saves, then
-            if i_save == 4
-                disp('FLAPPY_BIRD: Can''t save high score'); 
-            end
-        end
-
         if FlyKeyStatus
             FlyKeyStatus = false;
             break;
@@ -255,7 +235,6 @@ end
         
         SinY = Bird.OSCIL_RANGE(1) + sin(linspace(0, 2*pi, SinYRange))* Bird.OSCIL_RANGE(2);
         SinYPos = 1;
-        Best = Sprites.Best;    % Best Score
     end
 
 %% --- Graphics Section ---
@@ -316,19 +295,14 @@ end
         FloorSpriteHdl = image([0], [0],[],...
             'Parent', FloorAxesHdl, ...
             'Visible', 'on ');
-        GameOverHdl = text(72, 70, 'GAME OVER', ...
-            'FontName', 'Arial', 'FontSize', 20, 'HorizontalAlignment', 'center','Color',[1 0 0], 'Visible','off');
-        
-        ScoreInfoHdl = text(72, 110, 'Best', ...
-            'FontName', 'Helvetica', 'FontSize', 20, 'FontWeight', 'Bold', 'HorizontalAlignment', 'center','Color',[1 1 1], 'Visible', 'off');
-    end
+       
+        end
     function initGame()
                 % The scroll layer for the tubes
         TubeLayer.Alpha = false([GAME.RESOLUTION.*[1 2] 3]);
         TubeLayer.CData = uint8(zeros([GAME.RESOLUTION.*[1 2] 3]));
 
         Bird.Angle = 0;
-        Score = 0;
         Flags.ResetFloorTexture = true;
         SinYPos = 1;
         Flags.PreGame = true;
@@ -345,8 +319,9 @@ end
                 'AlphaData',Sprites.TubGap.Alpha);
             redrawTube(i);
         end
-
     end
+
+
 %% Game Logic
     function processBird()
         Bird.ScreenPos(2) = Bird.ScreenPos(2) + Bird.SpeedY;
@@ -374,8 +349,7 @@ end
         TubeFirstCData = TubeLayer.CData(:, 1:GAME.RESOLUTION(2), :);
         TubeFirstAlpha = TubeLayer.Alpha(:, 1:GAME.RESOLUTION(2), :);
         % Plot the first half of TubeLayer
-        MainCanvas(TubeFirstAlpha) = ...
-            TubeFirstCData (TubeFirstAlpha);
+        MainCanvas(TubeFirstAlpha) = TubeFirstCData (TubeFirstAlpha);
     end
     function scrollTubes(offset)
         Tubes.ScreenX = Tubes.ScreenX - offset;
@@ -409,8 +383,7 @@ end
     function collide_flag = isCollide()
         collide_flag = 0;
         if Bird.ScreenPos(1) >= Tubes.ScreenX(Tubes.FrontP)-5 && ...
-                Bird.ScreenPos(1) <= Tubes.ScreenX(Tubes.FrontP)+6+25
-            
+                Bird.ScreenPos(1) <= Tubes.ScreenX(Tubes.FrontP)+6+25            
         else
             return;
         end
@@ -422,13 +395,7 @@ end
         end
         return;
     end
-    
-    function addScore()
-        if Tubes.ScreenX(Tubes.FrontP) < 40 && Flags.NextTubeReady
-            Flags.NextTubeReady = false;
-            Score = Score + 1;
-        end
-    end
+
 
     function refreshBird()
         % move bird to pos [X Y],
@@ -443,7 +410,6 @@ end
             'YData', ytransgrid, ...
             'CData', Sprites.Bird.CDataNan(:,:,:, Bird.CurFrame));
     end
-%% -- Display Infos --
     
         
 %% -- Callbacks --
