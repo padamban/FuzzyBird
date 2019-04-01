@@ -33,8 +33,6 @@ MainCanvasHdl = [];
 BirdSpriteHdl = [];
 TubeSpriteHdl = [];
 FloorSpriteHdl = [];
-ScoreInfoHdl = [];
-GameOverHdl = [];
 FloorAxesHdl = [];
 %% Game Parameters
 MainFigureInitPos = [];
@@ -84,7 +82,6 @@ SinYRange = 44;
 SinYPos = [];
 SinY = [];
 
-Score = 0;
 
 Tubes.FrontP = 1;              % 1-3
 Tubes.ScreenX = [300 380 460]-2; % The middle of each tube
@@ -299,19 +296,14 @@ end
         FloorSpriteHdl = image([0], [0],[],...
             'Parent', FloorAxesHdl, ...
             'Visible', 'on ');
-        GameOverHdl = text(72, 70, 'GAME OVER', ...
-            'FontName', 'Arial', 'FontSize', 20, 'HorizontalAlignment', 'center','Color',[1 0 0], 'Visible','off');
-        
-        ScoreInfoHdl = text(72, 110, 'Best', ...
-            'FontName', 'Helvetica', 'FontSize', 20, 'FontWeight', 'Bold', 'HorizontalAlignment', 'center','Color',[1 1 1], 'Visible', 'off');
-    end
+       
+        end
     function initGame()
                 % The scroll layer for the tubes
         TubeLayer.Alpha = false([GAME.RESOLUTION.*[1 2] 3]);
         TubeLayer.CData = uint8(zeros([GAME.RESOLUTION.*[1 2] 3]));
 
         Bird.Angle = 0;
-        Score = 0;
         Flags.ResetFloorTexture = true;
         SinYPos = 1;
         Flags.PreGame = true;
@@ -392,8 +384,7 @@ end
     function collide_flag = isCollide()
         collide_flag = 0;
         if Bird.ScreenPos(1) >= Tubes.ScreenX(Tubes.FrontP)-5 && ...
-                Bird.ScreenPos(1) <= Tubes.ScreenX(Tubes.FrontP)+6+25
-            
+                Bird.ScreenPos(1) <= Tubes.ScreenX(Tubes.FrontP)+6+25            
         else
             return;
         end
@@ -420,7 +411,6 @@ end
             'YData', ytransgrid, ...
             'CData', Sprites.Bird.CDataNan(:,:,:, Bird.CurFrame));
     end
-%% -- Display Infos --
     
         
 %% -- Callbacks --
