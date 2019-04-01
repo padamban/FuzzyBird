@@ -32,7 +32,6 @@ MainAxesHdl = [];
 MainCanvasHdl = [];
 BirdSpriteHdl = [];
 TubeSpriteHdl = [];
-BeginInfoHdl = [];
 FloorSpriteHdl = [];
 ScoreInfoHdl = [];
 GameOverHdl = [];
@@ -136,7 +135,6 @@ while 1
                 scrollTubes(1);
             end
         end
-        addScore;
         Bird.CurFrame = 3 - floor(double(mod(CurrentFrameNo, 9))/3);
 
       %% Cycling the Palette
@@ -163,9 +161,7 @@ while 1
     
     %% Redraw the frame if the world has been processed
     if frame_updated
-%         drawToMainCanvas();
         set(MainCanvasHdl, 'CData', MainCanvas(1:200,:,:));
-%         Bird.Angle = double(mod(CurrentFrameNo,360))*pi/180;
         if fall_to_bottom
             Bird.CurFrame = 2;
         end
@@ -174,31 +170,12 @@ while 1
         if (~gameover)
             refreshFloor(CurrentFrameNo);
         end
-        curScoreString = sprintf('%d',(Score));
-        set(ScoreInfoForeHdl, 'String', curScoreString);
-        set(ScoreInfoBackHdl, 'String', curScoreString);
+
         drawnow;
         frame_updated = false;
-%         c = toc(stageStartTime);
 
     end
     if fall_to_bottom
-        if Score > Best
-            Best = Score;
-            
-            for i_save = 1:4     % Try saving four times if error occurs
-                try
-                    save sprites2.mat Best -append
-                    break;
-                catch
-                    continue;
-                end
-            end     % If the error still persist even after four saves, then
-            if i_save == 4
-                disp('FLAPPY_BIRD: Can''t save high score'); 
-            end
-        end
-
         if FlyKeyStatus
             FlyKeyStatus = false;
             break;
@@ -322,12 +299,6 @@ end
         FloorSpriteHdl = image([0], [0],[],...
             'Parent', FloorAxesHdl, ...
             'Visible', 'on ');
-        BeginInfoHdl = text(72, 100, 'Tap SPACE to begin', ...
-            'FontName', 'Helvetica', 'FontSize', 20, 'HorizontalAlignment', 'center','Color',[.25 .25 .25], 'Visible','off');
-        ScoreInfoBackHdl = text(72, 50, '0', ...
-            'FontName', 'Helvetica', 'FontSize', 30, 'HorizontalAlignment', 'center','Color',[0,0,0], 'Visible','off');
-        ScoreInfoForeHdl = text(70.5, 48.5, '0', ...
-            'FontName', 'Helvetica', 'FontSize', 30, 'HorizontalAlignment', 'center', 'Color',[1 1 1], 'Visible','off');
         GameOverHdl = text(72, 70, 'GAME OVER', ...
             'FontName', 'Arial', 'FontSize', 20, 'HorizontalAlignment', 'center','Color',[1 0 0], 'Visible','off');
         
@@ -341,20 +312,12 @@ end
 
         Bird.Angle = 0;
         Score = 0;
-        %TubeLayer.Alpha(GAME.FLOOR_TOP_Y:GAME.RESOLUTION(1), :, :) = true;
         Flags.ResetFloorTexture = true;
         SinYPos = 1;
         Flags.PreGame = true;
-%         scrollTubeLayer(GAME.RESOLUTION(2));   % Do it twice to fill the
-%         disp('mhaha');
-%         scrollTubeLayer(GAME.RESOLUTION(2));   % Entire tube layer
+
         drawToMainCanvas();
         set(MainCanvasHdl, 'CData', MainCanvas);
-        set(BeginInfoHdl, 'Visible','on');
-        set(ScoreInfoHdl, 'Visible','off');
-        set(ScoreInfoBackHdl, 'Visible','off');
-        set(ScoreInfoForeHdl, 'Visible','off');
-        set(GameOverHdl, 'Visible','off');
         set(FloorSpriteHdl, 'CData',Sprites.Floor.CData);
         Tubes.FrontP = 1;              % 1-3
         Tubes.ScreenX = [300 380 460]-2; % The middle of each tube
@@ -442,13 +405,7 @@ end
         end
         return;
     end
-    
-    function addScore()
-        if Tubes.ScreenX(Tubes.FrontP) < 40 && Flags.NextTubeReady
-            Flags.NextTubeReady = false;
-            Score = Score + 1;
-        end
-    end
+
 
     function refreshBird()
         % move bird to pos [X Y],
