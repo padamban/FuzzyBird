@@ -50,9 +50,14 @@ Flags.PreGame = true;
 Flags.NextTubeReady = true;
 CloseReq = false;
 
-FlyKeyNames = {'space', 'return', 'uparrow', 'w'};
+FlyKeyNames = {'space'};
 FlyKeyStatus = false; %(size(FlyKeyNames));
-FlyKeyValid = true(size(FlyKeyNames));      % 
+FlyKeyValid = true(size(FlyKeyNames));      
+CmdFlyKeyNames = {'uparrow'};
+CmdFlyKeyStatus = false;
+CmdFlyKeyValid = true(size(CmdFlyKeyNames));
+
+
 %% Canvases:
 MainCanvas = [];
 
@@ -87,12 +92,58 @@ Tubes.FrontP = 1;              % 1-3
 Tubes.ScreenX = [300 380 460]-2; % The middle of each tube
 Tubes.VOffset = ceil(rand(1,3)*105); 
 
+
+
+
+% Jump Command
+CMD.Auto = 1;
+function Jump()
+
+
+end
+
+
+
 %% -- Game Logic --
 initVariables();
 initWindow();
 
+% Initilize text elements for displaying variables on the GUI
 
+TEXT.th1 = [];
+TEXT.th2 = [];
 
+function initPrint(i, j)
+    x = 5;
+    y = 0;
+    dy = 9;
+    for ii=1:i
+        y = y + dy;
+        TEXT.th1 = [TEXT.th1, text(x, y, '', 'Visible', 'off')];        
+    end    
+    y = y + dy/2;
+    for jj=1:j
+        y = y + dy;
+        TEXT.th2 = [TEXT.th2, text(x, y, '', 'Visible', 'off')];
+    end
+end
+function print(vars, th)
+    for i_var =1:length(vars)
+        if i_var<=length(th)          
+            set(th(i_var), 'String', sprintf('%s = %.2f', vars{i_var}, eval(vars{i_var})));            
+        end
+    end
+end
+function showPrint(onOff)
+    for i=1:length(TEXT.th1)
+        set( TEXT.th1(i) , 'Visible', onOff)
+    end         
+    for i=1:length(TEXT.th2)
+        set( TEXT.th2(i) , 'Visible', onOff)
+    end
+end
+
+initPrint(3, 3);
 
 % Main Game
 while 1
@@ -104,20 +155,19 @@ gameover = false;
 stageStartTime = tic;
 while 1
     loops = 0;
-    sY = Bird.SpeedY 
+    
     curTime = toc(stageStartTime);
     while (curTime >= ((CurrentFrameNo) * GAME.FRAME_DURATION) && loops < GAME.MAX_FRAME_SKIP)
         
         if FlyKeyStatus  % If left key is pressed     
             if ~gameover
-                Bird.SpeedY = -2.5; % -2.5;
+                Bird.SpeedY = -2.5;  % -2.5;
                 FlyKeyStatus = false;
                 Bird.LastHeight = Bird.ScreenPos(2);
                 if Flags.PreGame
                     Flags.PreGame = false;                    
                     Bird.ScrollX = 0;
-                end
-                
+                end                
             else
                 if Bird.SpeedY < 0
                     Bird.SpeedY = 0;
@@ -133,6 +183,11 @@ while 1
                 scrollTubes(1);
             end
         end
+        if CMD.Auto
+            
+        end
+        
+        
         Bird.CurFrame = 3 - floor(double(mod(CurrentFrameNo, 9))/3);
 
       %% Cycling the Palette
@@ -172,6 +227,10 @@ while 1
         drawnow;
         frame_updated = false;
 
+        print({'Bird.LastHeight', 'Bird.SpeedY'}, TEXT.th1);
+        print({'Bird.LastHeight', 'Bird.SpeedY'}, TEXT.th2);
+
+
     end
     if fall_to_bottom
         if FlyKeyStatus
@@ -187,6 +246,7 @@ while 1
     end
 end
 end
+
     function initVariables()
         Sprites = load('sprites2.mat');
         GAME.MAX_FRAME_SKIP = 5;
@@ -318,7 +378,8 @@ end
                 'AlphaData',Sprites.TubGap.Alpha);
             redrawTube(i);
         end
-
+        
+        showPrint('on')
     end
 %% Game Logic
     function processBird()
@@ -415,7 +476,8 @@ end
     function stl_KeyUp(hObject, eventdata, handles)
         key = get(hObject,'CurrentKey');
         % Remark the released keys as valid
-        FlyKeyValid = FlyKeyValid | strcmp(key, FlyKeyNames);
+        FlyKeyValid = FlyKeyValid | strcmp(key, FlyKeyNames)
+%         FlyKeyValid = 
     end
     function stl_KeyDown(hObject, eventdata, handles)
         key = get(hObject,'CurrentKey');
@@ -424,7 +486,8 @@ end
         % Two key presses at the same time will be counted as 1 key press
         down_keys = strcmp(key, FlyKeyNames);
         FlyKeyStatus = any(FlyKeyValid & down_keys);
-        FlyKeyValid = FlyKeyValid & (~down_keys);
+        FlyKeyValid = FlyKeyValid & (~down_keys)
+        
     end
     function stl_KeyPressFcn(hObject, eventdata, handles)
         curKey = get(hObject, 'CurrentKey');
