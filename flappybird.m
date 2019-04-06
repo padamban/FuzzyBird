@@ -34,6 +34,8 @@ BirdSpriteHdl = [];
 TubeSpriteHdl = [];
 FloorSpriteHdl = [];
 FloorAxesHdl = [];
+DotsHdl = [];
+
 %% Game Parameters
 MainFigureInitPos = [];
 MainFigureSize = [];
@@ -52,10 +54,14 @@ CloseReq = false;
 
 FlyKeyNames = {'space'};
 FlyKeyStatus = false; %(size(FlyKeyNames));
-FlyKeyValid = true(size(FlyKeyNames));      
-CmdFlyKeyNames = {'uparrow'};
-CmdFlyKeyStatus = false;
-CmdFlyKeyValid = true(size(CmdFlyKeyNames));
+FlyKeyValid = true(size(FlyKeyNames));     
+
+FuzzyFlyKeyNames = {'uparrow'};
+
+
+
+
+
 
 
 %% Canvases:
@@ -95,12 +101,74 @@ Tubes.VOffset = ceil(rand(1,3)*105);
 
 
 
-% Jump Command
-CMD.Auto = 1;
-function Jump()
+% Command
+SET.colision = 0;
+SET.frameDelay = 0; % ms
 
+DOT.rgb = [];
+DOT.alpha = [];
 
+function IMG_initShape()
+    size = 50;
+    DOT.rgb = zeros(size,size,3) + 200;
+    DOT.alpha = ones(size);
 end
+
+
+CMD.Fuzzy = 0;
+CMD.jumpCount = 0;
+CMD.timeToJump = 0;
+CMD.currTime = 0;
+CMD.jumpWait = 0;
+
+function CMD_reset()
+    CMD.Fuzzy = 0;
+    CMD.jumpCount = 0;
+    CMD.timeToJump = 0;
+    CMD.currTime = 0;
+    CMD.jumpWait = 38;
+end
+
+CMDENV.birdY = 0;
+CMDENV.towerX1 = 0;
+CMDENV.towerY1 = 0;
+
+CMDENV.ScreenX = [];
+CMDENV.VOffset = [];
+function CMDENV_scan()
+    CMDENV.birdY = Bird.SpeedY;
+    CMDENV.towerX1 = Tubes.ScreenX(Tubes.FrontP);
+    CMDENV.towerY1 = Tubes.VOffset(Tubes.FrontP);
+%     CMDENV
+%     if TUBE
+%     CMDENV.ScreenX = Tubes.ScreenX;
+%     end
+%     CMDENV.VOffset = TUBE.VOffset;
+%     CMDENV
+%     GAMEPLAY
+%     TUBE
+%     Tubes
+    
+%     CMDENV
+    print({'CMDENV.birdY'}, TEXT.th2);
+end
+
+function CMDENV_report()
+    print({'Bird.LastHeight', 'Bird.SpeedY'}, TEXT.th1);
+end
+
+function [okJump] = CMD_Jump(currTime)
+    okJump = 0;
+    CMD.currTime = currTime;
+    if(CMD.timeToJump < CMD.currTime)
+        CMD.jumpCount = CMD.jumpCount + 1;
+        CMD.timeToJump = CMD.timeToJump + CMD.jumpWait;
+        okJump = 1;
+%         CMDENV_scan();
+    end
+end
+
+
 
 
 
@@ -143,9 +211,32 @@ function showPrint(onOff)
     end
 end
 
-initPrint(3, 3);
+initPrint(2, 8);
+
+
+
 
 % Main Game
+
+
+function hop(gameover)
+    if ~gameover
+        Bird.SpeedY = -2.5;
+        FlyKeyStatus = false;
+        Bird.LastHeight = Bird.ScreenPos(2);
+        if Flags.PreGame
+            Flags.PreGame = false;                    
+            Bird.ScrollX = 0;
+        end                
+    else
+        if Bird.SpeedY < 0
+            Bird.SpeedY = 0;
+        end
+    end
+end
+
+
+
 while 1
 initGame();
 CurrentFrameNo = double(0);
@@ -153,26 +244,19 @@ collide = false;
 fall_to_bottom = false;
 gameover = false;
 stageStartTime = tic;
+IMG_initShape();
+CMD_reset();
 while 1
     loops = 0;
     
     curTime = toc(stageStartTime);
     while (curTime >= ((CurrentFrameNo) * GAME.FRAME_DURATION) && loops < GAME.MAX_FRAME_SKIP)
         
-        if FlyKeyStatus  % If left key is pressed     
-            if ~gameover
-                Bird.SpeedY = -2.5;  % -2.5;
-                FlyKeyStatus = false;
-                Bird.LastHeight = Bird.ScreenPos(2);
-                if Flags.PreGame
-                    Flags.PreGame = false;                    
-                    Bird.ScrollX = 0;
-                end                
-            else
-                if Bird.SpeedY < 0
-                    Bird.SpeedY = 0;
-                end
-            end
+        CMDENV_scan()
+        pause(SET.frameDelay/1000);
+        
+        if FlyKeyStatus  % If left key is pressed    
+            hop(gameover);
         end
         if Flags.PreGame
             processCPUBird;
@@ -183,8 +267,11 @@ while 1
                 scrollTubes(1);
             end
         end
-        if CMD.Auto
-            
+        if CMD.Fuzzy
+            okJump = CMD_Jump(CurrentFrameNo);
+            if okJump
+                hop(gameover);
+            end
         end
         
         
@@ -193,8 +280,9 @@ while 1
       %% Cycling the Palette
         % Update the cycle variables
        collide = isCollide();
-       if collide
+       if collide           
            gameover = true;
+           CMD_reset();
        end
        CurrentFrameNo = CurrentFrameNo + 1;
        loops = loops + 1;
@@ -204,11 +292,15 @@ while 1
        if Bird.ScreenPos(2) >= 200-5;
             Bird.ScreenPos(2) = 200-5;
             gameover = true;
+            CMD_reset();
             if abs(Bird.Angle - pi/2) < 1e-3
                 fall_to_bottom = true;
                 FlyKeyStatus = false;
+             
             end
        end
+       
+       
 
     end
     
@@ -227,9 +319,8 @@ while 1
         drawnow;
         frame_updated = false;
 
-        print({'Bird.LastHeight', 'Bird.SpeedY'}, TEXT.th1);
-        print({'Bird.LastHeight', 'Bird.SpeedY'}, TEXT.th2);
-
+        
+        CMDENV_report()
 
     end
     if fall_to_bottom
@@ -281,6 +372,8 @@ end
         MainAxesInitPos = [0 0]; %[0.1 0.1]; % The initial position of the axes IN the figure
         MainAxesSize = [144 200]; % GAME.WINDOW_RES([2 1]);
         FloorAxesSize = [144 56];
+        
+        
         %% Canvases:
         MainCanvas = uint8(zeros([GAME.RESOLUTION 3]));
                 
@@ -345,7 +438,12 @@ end
             'Visible', 'on');
         end
         
-        
+        DotsHdl = zeros(1,3);
+        for i = 1:3
+            DotsHdl(i) = image([0 26-1], [0 304-1], [],...
+            'Parent', MainAxesHdl,...
+            'Visible', 'on');
+        end
         
         BirdSpriteHdl = surface(Bird.XGRID-100,Bird.YGRID-100, ...
             zeros(size(Bird.XGRID)), Sprites.Bird.CDataNan(:,:,:,1), ...
@@ -355,9 +453,12 @@ end
             'Parent', MainAxesHdl);
         FloorSpriteHdl = image([0], [0],[],'Parent', FloorAxesHdl,'Visible', 'on ');
        
+        
+        
+        
         end
     function initGame()
-                % The scroll layer for the tubes
+        % The scroll layer for the tubes
         TubeLayer.Alpha = false([GAME.RESOLUTION.*[1 2] 3]);
         TubeLayer.CData = uint8(zeros([GAME.RESOLUTION.*[1 2] 3]));
 
@@ -377,6 +478,10 @@ end
             set(TubeSpriteHdl(i),'CData',Sprites.TubGap.CData,...
                 'AlphaData',Sprites.TubGap.Alpha);
             redrawTube(i);
+        end
+        
+        for i = 1:3
+            set(DotsHdl(i),'CData',DOT.rgb,'AlphaData',DOT.alpha);
         end
         
         showPrint('on')
@@ -451,7 +556,7 @@ end
         GapY = [128 177] - (Tubes.VOffset(Tubes.FrontP)-1);    % The upper and lower bound of the GAP, 0-based
         
         if Bird.ScreenPos(2) < GapY(1)+4 || Bird.ScreenPos(2) > GapY(2)-4
-            collide_flag = 1;
+            collide_flag = SET.colision;
         end
         return;
     end
@@ -474,26 +579,30 @@ end
         
 %% -- Callbacks --
     function stl_KeyUp(hObject, eventdata, handles)
-        key = get(hObject,'CurrentKey');
-        % Remark the released keys as valid
-        FlyKeyValid = FlyKeyValid | strcmp(key, FlyKeyNames)
-%         FlyKeyValid = 
+        keyU = get(hObject,'CurrentKey');
+%         % Remark the released keys as valid
+        FlyKeyValid = FlyKeyValid | strcmp(keyU, FlyKeyNames);
+
+        
     end
     function stl_KeyDown(hObject, eventdata, handles)
-        key = get(hObject,'CurrentKey');
+        keyD = get(hObject,'CurrentKey');
         
         % Has to be both 'pressed' and 'valid';
         % Two key presses at the same time will be counted as 1 key press
-        down_keys = strcmp(key, FlyKeyNames);
+        down_keys = strcmp(keyD, FlyKeyNames);
         FlyKeyStatus = any(FlyKeyValid & down_keys);
-        FlyKeyValid = FlyKeyValid & (~down_keys)
+        FlyKeyValid = FlyKeyValid & (~down_keys);
+
         
     end
     function stl_KeyPressFcn(hObject, eventdata, handles)
         curKey = get(hObject, 'CurrentKey');
         switch true
             case strcmp(curKey, 'escape') 
-                CloseReq = true;            
+                CloseReq = true; 
+            case strcmp(curKey, FuzzyFlyKeyNames) 
+                CMD.Fuzzy = ~CMD.Fuzzy; 
         end
     end
     function stl_CloseReqFcn(hObject, eventdata, handles)
