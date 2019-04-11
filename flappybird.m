@@ -104,7 +104,8 @@ Tubes.VOffset = ceil(rand(1,3)*105);
 
 % Command
 SET.colision = 0;
-SET.frameDelay = 10; % ms
+SET.frameDelay = 0; % ms
+SET.scanVisu = 1; % Visualize the scanned values of CMDENV
 
 DOT.CData = [];
 DOT.Alpha = [];
@@ -113,12 +114,16 @@ DOT.Count = 30;
 
 RECT.CData = [];
 RECT.Alpha = [];
+RECT.Alpha2 = [];
 RECT.Count = 30;
+RECT.RectIdx = RECT.Count - 5;
 RECT.W = 0.3;
 
+
+
+
 function IMG_initShape()
-    size = 77;
-    
+    size = 77;       
     DOT.CData = uint8(zeros(size,size,3));
     DOT.CData(:,:,1) = uint8(DOT.CData(:,:,1)+255);
     DOT.Alpha = logical(ones(size));
@@ -129,26 +134,62 @@ function IMG_initShape()
             DOT.Alpha(x,y) = d < c;           
         end
     end  
-    
     RECT.CData = uint8(zeros(size,size,3));
     RECT.CData(:,:,1) = uint8(DOT.CData(:,:,1)+150);
     RECT.CData(:,:,3) = uint8(DOT.CData(:,:,3)+150);
     RECT.Alpha = logical(ones(size));
-
-    
+    RECT.Alpha2 = logical(ones(size));
+    w = 5;
+    RECT.Alpha2(w:size-w+1, w:size-w+1) = 0;
 end
 
-function IMG_dot(i, x, y, s)
+
+     
+function IMG_initVisuElements()   
+    for i = 1:DOT.Count
+        set(DotsHdl(i),'CData',DOT.CData, 'AlphaData',DOT.Alpha);
+    end
+    for i = 1:RECT.Count
+        if i < RECT.RectIdx 
+            set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha);
+        else
+            set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha2);
+        end
+    end
+end
+
+
+function IMG_initVisu()            
+    DotsHdl = zeros(1,DOT.Count);
+    for i = 1:DOT.Count
+        DotsHdl(i) = image([0 DOT.R], [0 DOT.R], [],...
+        'Parent', MainAxesHdl,...
+        'Visible', 'on');        
+    end
+
+    LinesHdl = zeros(1,RECT.Count);
+    for i = 1:RECT.Count
+        LinesHdl(i) = image([0 RECT.W], [3 3+RECT.W], [],...
+        'Parent', MainAxesHdl,...
+        'Visible', 'on');
+    end        
+end
+
+function [i] = IMG_dot(i, x, y, s)
     set(DotsHdl(i), 'XData', [x-DOT.R*s x+DOT.R*s], 'YData', [y-DOT.R*s y+DOT.R*s]);    
+    i = i + 1;
 end
 
-function IMG_line(i, x, y, s, len, direction)
-    d.U = 0;
-    d.D = 0;
-    d.R = 0;
-    d.L = 0;
+function [i] = IMG_line(i, x, y, s, len, direction)
+    d.all = 0;
+    d.(direction) = len;
+    d.U = d.all;
+    d.D = d.all;
+    d.R = d.all;
+    d.L = d.all;
     d.(direction) = len;
     set(LinesHdl(i), 'XData', [x-RECT.W*s-d.L x+RECT.W*s+d.R], 'YData', [y-RECT.W*s-d.U y+RECT.W*s+d.D]);    
+    i = i + 1;    
 end
 
 CMD.Fuzzy = 0;
@@ -167,138 +208,95 @@ end
 
 CMDENV.birdX = 0;
 CMDENV.birdY = 0;
-CMDENV.towerX1 = 0;
-CMDENV.towerY1 = 0;
-
-CMDENV.ScreenX = [];
-CMDENV.VOffset = [];
-CMDENV.towersX = [];
-CMDENV.towersY = [];
-
-CMDENV.towersDistX = [];
-
-
-
-CMDENV.gapFront = [];
-CMDENV.gapBack = [];
-CMDENV.gapTop = [];
-CMDENV.gapCenter = [];
-CMDENV.gapBottom = [];
-
+CMDENV.gapFront = ones(1,2)*1000;
+CMDENV.gapBack = ones(1,2)*1000;
+CMDENV.gapTop = ones(1,2)*1000;
+CMDENV.gapCenter = ones(1,2)*1000;
+CMDENV.gapBottom = ones(1,2)*1000;
 CMDENV.toGround = 0;
 CMDENV.colisions = 0;
 CMDENV.score = 0;
-CMDENV.index = 1;
 CMDENV.overTube = false;
-
+CMDENV.coliding = false;
+CMDENV.gameover = false;
 
 function CMDENV_scan()
-    screenHeight = 195;
-    CMDENV.birdX = Bird.ScreenPos(1);
-    CMDENV.birdY = screenHeight - Bird.ScreenPos(2);
-    CMDENV.towerX1 = Tubes.ScreenX(Tubes.FrontP);
-    CMDENV.towerY1 = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(Tubes.FrontP);
-    CMDENV.toGround = Tubes.FrontP
-    CMDENV.ScreenX = Tubes.ScreenX;
-    CMDENV.VOffset = Tubes.VOffset;
-    
-    CMDENV.towersX = CMDENV.ScreenX - CMDENV.birdX;
-    
-    CMDENV.towersDistX = CMDENV.ScreenX - CMDENV.birdX + TUBE.WIDTH;
+    if ~CMDENV.gameover
+        screenHeight = 195;
+        CMDENV.birdX = Bird.ScreenPos(1);
+        CMDENV.birdY = screenHeight - Bird.ScreenPos(2);    
+        towersDistX = Tubes.ScreenX - CMDENV.birdX + TUBE.WIDTH;    
+        CMDENV.gapBack(1) = min(towersDistX(towersDistX>0)); 
+        index = find(towersDistX==CMDENV.gapBack(1));
+        nextIndex = mod(index,3)+1;
+        CMDENV.gapBack(2) = towersDistX(nextIndex);
+        CMDENV.gapFront(1) = CMDENV.gapBack(1) - TUBE.WIDTH;
+        CMDENV.gapFront(2) = CMDENV.gapBack(2) - TUBE.WIDTH;
+        CMDENV.overTube = index == Tubes.FrontP && CMDENV.score > 0 ;    
+        towerGap = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(index);
+        towerGapNext = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(nextIndex);
+        CMDENV.gapTop(1) = towerGap - 18;
+        CMDENV.gapBottom(1) = towerGap + 32 ;
+        CMDENV.gapCenter(1) = towerGap + 7;    
+        CMDENV.gapTop(2) = towerGapNext - 18;
+        CMDENV.gapBottom(2) = towerGapNext + 32 ;
+        CMDENV.gapCenter(2) = towerGapNext + 7;
 
-    CMDENV.gapFront = ones(1,2)*1000;
-    CMDENV.gapBack = ones(1,2)*1000;
-    
-    CMDENV.gapTop = ones(1,2)*1000;
-    CMDENV.gapCenter = ones(1,2)*1000;
-    CMDENV.gapBottom = ones(1,2)*1000;
+        dotIDX = 1;
+        lineIDX = 1;
+        rectIDX = RECT.RectIdx;
 
+        if SET.scanVisu
+            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(index), CMDENV.gapCenter(1), 1);
+            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(index), CMDENV.gapTop(1), 1);
+            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(index), CMDENV.gapBottom(1), 1);        
+            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapCenter(2), 0.7);
+            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapTop(2), 0.5);
+            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapBottom(2), 0.5);
+        end
     
-    
-    CMDENV.gapBack(1) = min(CMDENV.towersDistX(CMDENV.towersDistX>0)); 
-    index = find(CMDENV.towersDistX==CMDENV.gapBack(1));
-    nextIndex = mod(index,3)+1;
-    CMDENV.gapBack(2) = CMDENV.towersDistX(nextIndex);
-    CMDENV.gapFront(1) = CMDENV.gapBack(1) - TUBE.WIDTH;
-    CMDENV.gapFront(2) = CMDENV.gapBack(2) - TUBE.WIDTH;
-    
-    CMDENV.index = index;
-    CMDENV.overTube = index == Tubes.FrontP && CMDENV.score > 0 ;
-    
-    towerGap = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(index);
-    towerGapNext = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(nextIndex);
+        CMDENV.gapTop(1) = screenHeight - CMDENV.gapTop(1) - CMDENV.birdY;
+        CMDENV.gapBottom(1) = screenHeight - CMDENV.gapBottom(1) - CMDENV.birdY;
+        CMDENV.gapCenter(1) = screenHeight - CMDENV.gapCenter(1) - CMDENV.birdY;
+        CMDENV.gapTop(2) = screenHeight - CMDENV.gapTop(2) - CMDENV.birdY;
+        CMDENV.gapBottom(2) = screenHeight - CMDENV.gapBottom(2) - CMDENV.birdY;
+        CMDENV.gapCenter(2) = screenHeight - CMDENV.gapCenter(2) - CMDENV.birdY;
+        CMDENV.toGround =  CMDENV.birdY;
 
-    CMDENV.gapTop(1) = towerGap - 18;
-    CMDENV.gapBottom(1) = towerGap + 32 ;
-    CMDENV.gapCenter(1) = towerGap + 7;    
-    CMDENV.gapTop(2) = towerGapNext - 18;
-    CMDENV.gapBottom(2) = towerGapNext + 32 ;
-    CMDENV.gapCenter(2) = towerGapNext + 7;
-    
-    IMG_dot(5, Tubes.ScreenX(index), CMDENV.gapCenter(1), 1);
-    IMG_dot(6, Tubes.ScreenX(index), CMDENV.gapTop(1), 1);
-    IMG_dot(7, Tubes.ScreenX(index), CMDENV.gapBottom(1), 1);        
-    IMG_dot(11, Tubes.ScreenX(nextIndex), CMDENV.gapCenter(2), 0.7);
-    IMG_dot(12, Tubes.ScreenX(nextIndex), CMDENV.gapTop(2), 0.5);
-    IMG_dot(13, Tubes.ScreenX(nextIndex), CMDENV.gapBottom(2), 0.5);
-    
-    CMDENV.gapTop(1) = screenHeight - CMDENV.gapTop(1) - CMDENV.birdY;
-    CMDENV.gapBottom(1) = screenHeight - CMDENV.gapBottom(1) - CMDENV.birdY;
-    CMDENV.gapCenter(1) = screenHeight - CMDENV.gapCenter(1) - CMDENV.birdY;
-    CMDENV.gapTop(2) = screenHeight - CMDENV.gapTop(2) - CMDENV.birdY;
-    CMDENV.gapBottom(2) = screenHeight - CMDENV.gapBottom(2) - CMDENV.birdY;
-    CMDENV.gapCenter(2) = screenHeight - CMDENV.gapCenter(2) - CMDENV.birdY;
+        if CMDENV.overTube    
+            CMDENV.toGround = -CMDENV.gapBottom(1);
+        end
 
-    
-    
-    for i=1:3
-       x = CMDENV.birdX;
-       y =  100;
-       IMG_dot(i, x, y, 0.5*i)
-    end
-    
+        if SET.scanVisu 
+            x = Bird.ScreenPos(1);
+            y = Bird.ScreenPos(2);
+            lineIDX = IMG_line(lineIDX, x, y+0, 1, CMDENV.gapFront(1), 'R');
+            lineIDX = IMG_line(lineIDX, x, y+2, 1, CMDENV.gapBack(1), 'R');     
+            lineIDX = IMG_line(lineIDX, x, 193, 1, CMDENV.gapFront(2), 'R');
+            lineIDX = IMG_line(lineIDX, x, 195, 1, CMDENV.gapBack(2), 'R');
+            lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(1), y, 1, CMDENV.gapTop(1), 'U');
+            lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(1)-2, y, 1, CMDENV.gapBottom(1), 'U');
+            lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(1)-4, y, 1, CMDENV.gapCenter(1), 'U');
+            lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(2), y, 1, CMDENV.gapTop(2), 'U');
+            lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(2)-2, y, 1, CMDENV.gapBottom(2), 'U');
+            lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(2)-4, y, 1, CMDENV.gapCenter(2), 'U');
+            lineIDX = IMG_line(lineIDX, x, y, 1, CMDENV.birdY, 'D');
+            lineIDX = IMG_line(lineIDX, x+2, y, 1, CMDENV.toGround, 'D');
 
-
-    x = Bird.ScreenPos(1);
-    y = Bird.ScreenPos(2);
-    
-    % distance down
-    
-    CMDENV.toGround =  CMDENV.birdY;
-    
-    if CMDENV.overTube    
-        CMDENV.toGround = -CMDENV.gapBottom(1);
-    end
-    
-    IMG_line(2, x, y+0, 1, CMDENV.gapFront(1), 'R')
-    IMG_line(3, x, y+2, 1, CMDENV.gapBack(1), 'R')
-
-%     dd = 
-
-%     dist= max(CMDENV.towersDistX(CMDENV.towersDistX>0))-10
-%     dist = 195-Bird.ScreenPos(2);
-   
-    
-    IMG_line(4, x, 193, 1, CMDENV.gapFront(2), 'R')
-    IMG_line(5, x, 195, 1, CMDENV.gapBack(2), 'R')
-    
-    IMG_line(6, x+CMDENV.gapFront(1), y, 1, CMDENV.gapTop(1), 'U')
-    IMG_line(7, x+CMDENV.gapFront(1)-2, y, 1, CMDENV.gapBottom(1), 'U')
-    IMG_line(8, x+CMDENV.gapFront(1)-4, y, 1, CMDENV.gapCenter(1), 'U')
+            if CMDENV.coliding
+                rectIDX = IMG_line(rectIDX, x, y, 1, 10, 'all');
+            else
+                rectIDX = IMG_line(rectIDX, x, y, 1, 0, 'all');
+            end
         
-    IMG_line(13, x+CMDENV.gapFront(2), y, 1, CMDENV.gapTop(2), 'U')
-    IMG_line(14, x+CMDENV.gapFront(2)-2, y, 1, CMDENV.gapBottom(2), 'U')
-    IMG_line(15, x+CMDENV.gapFront(2)-4, y, 1, CMDENV.gapCenter(2), 'U')
-
-    IMG_line(9, x, y, 1, CMDENV.birdY, 'D')
-    IMG_line(10, x+2, y, 1, CMDENV.toGround, 'D')
-
-    
-    if CMDENV.overTube
-        IMG_dot(8, x, y, 5);
-    else
-        IMG_dot(8, x, y, 0.1);
+            if CMDENV.overTube
+                dotIDX = IMG_dot(dotIDX, x, y, 4);
+            else
+                dotIDX = IMG_dot(dotIDX, x, y, 0.1);
+            end
+        end
     end
+
 %     Bird
 %     Tubes
     CMDENV
@@ -307,6 +305,35 @@ end
 
 function CMDENV_report()
     print({'Bird.LastHeight', 'Bird.SpeedY'}, TEXT.th1);
+end
+
+function CMD_addScore()
+    if Tubes.ScreenX(Tubes.FrontP) < 40 && Flags.NextTubeReady
+        Flags.NextTubeReady = false;
+        CMDENV.score = CMDENV.score + 1;
+    end
+end
+
+function CMD_colide()
+    if ~CMDENV.gameover
+        CMDENV.colisions = CMDENV.colisions + 1;
+    end
+    CMDENV.coliding = 1;
+end
+
+function CMD_gameover()
+    CMDENV.coliding = 1;
+    CMDENV.gameover = 1;
+    if ~CMDENV.gameover
+        CMDENV.colisions = CMDENV.colisions + 1;
+    end
+end
+
+
+function CMD_fly()
+    CMDENV.coliding = 0;
+    CMDENV.gameover = 0;
+
 end
 
 function [okJump] = CMD_Jump(currTime)
@@ -319,16 +346,7 @@ function [okJump] = CMD_Jump(currTime)
     end
 end
 
-function CMD_addScore()
-    if Tubes.ScreenX(Tubes.FrontP) < 40 && Flags.NextTubeReady
-        Flags.NextTubeReady = false;
-        CMDENV.score = CMDENV.score + 1;
-    end
-end
 
-function CMD_colide()
-    CMDENV.colisions = CMDENV.colisions + 1;
-end
 
 
 %% -- Game Logic --
@@ -452,6 +470,8 @@ while 1
             Bird.ScreenPos(2) = 200-5;
             gameover = true;
             CMD_reset();
+            CMD_gameover()
+
             if abs(Bird.Angle - pi/2) < 1e-3
                 fall_to_bottom = true;
                 FlyKeyStatus = false;
@@ -598,19 +618,7 @@ end
             'Visible', 'on');
         end
         
-        DotsHdl = zeros(1,DOT.Count);
-        for i = 1:DOT.Count
-            DotsHdl(i) = image([0 DOT.R], [0 DOT.R], [],...
-            'Parent', MainAxesHdl,...
-            'Visible', 'on');
-        end
-        
-        LinesHdl = zeros(1,RECT.Count);
-        for i = 1:RECT.Count
-            LinesHdl(i) = image([0 RECT.W], [3 3+RECT.W], [],...
-            'Parent', MainAxesHdl,...
-            'Visible', 'on');
-        end
+        IMG_initVisu()
         
         BirdSpriteHdl = surface(Bird.XGRID-100,Bird.YGRID-100, ...
             zeros(size(Bird.XGRID)), Sprites.Bird.CDataNan(:,:,:,1), ...
@@ -647,12 +655,7 @@ end
             redrawTube(i);
         end
         
-        for i = 1:DOT.Count
-            set(DotsHdl(i),'CData',DOT.CData, 'AlphaData',DOT.Alpha);
-        end
-        for i = 1:RECT.Count
-            set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha);
-        end
+        IMG_initVisuElements();
         
         showPrint('on')
     end
@@ -720,6 +723,7 @@ end
         if Bird.ScreenPos(1) >= Tubes.ScreenX(Tubes.FrontP)-5 && ...
                 Bird.ScreenPos(1) <= Tubes.ScreenX(Tubes.FrontP)+6+25            
         else
+            CMD_fly()
             return;
         end
         
@@ -728,7 +732,10 @@ end
         if Bird.ScreenPos(2) < GapY(1)+4 || Bird.ScreenPos(2) > GapY(2)-4
             collide_flag = SET.colision;
             CMD_colide()
+        else
+            CMD_fly()
         end
+        
         return;
     end
 
