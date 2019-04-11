@@ -35,6 +35,7 @@ TubeSpriteHdl = [];
 FloorSpriteHdl = [];
 FloorAxesHdl = [];
 DotsHdl = [];
+LinesHdl = [];
 
 %% Game Parameters
 MainFigureInitPos = [];
@@ -103,16 +104,52 @@ Tubes.VOffset = ceil(rand(1,3)*105);
 
 % Command
 SET.colision = 0;
-SET.frameDelay = 0; % ms
+SET.frameDelay = 10; % ms
 
-DOT.rgb = [];
-DOT.alpha = [];
+DOT.CData = [];
+DOT.Alpha = [];
+DOT.R = 2;
+DOT.Count = 30;
+
+RECT.CData = [];
+RECT.Alpha = [];
+RECT.Count = 30;
+RECT.W = 0.3;
 
 function IMG_initShape()
-    d = 5;
-    image=zeros(d,d,3)+200
+    size = 77;
+    
+    DOT.CData = uint8(zeros(size,size,3));
+    DOT.CData(:,:,1) = uint8(DOT.CData(:,:,1)+255);
+    DOT.Alpha = logical(ones(size));
+    for x=1:size
+        for y=1:size
+            c=ceil(size/2);
+            d = sqrt((c-x)^2 + (c-y)^2);
+            DOT.Alpha(x,y) = d < c;           
+        end
+    end  
+    
+    RECT.CData = uint8(zeros(size,size,3));
+    RECT.CData(:,:,1) = uint8(DOT.CData(:,:,1)+150);
+    RECT.CData(:,:,3) = uint8(DOT.CData(:,:,3)+150);
+    RECT.Alpha = logical(ones(size));
+
+    
 end
 
+function IMG_dot(i, x, y, s)
+    set(DotsHdl(i), 'XData', [x-DOT.R*s x+DOT.R*s], 'YData', [y-DOT.R*s y+DOT.R*s]);    
+end
+
+function IMG_line(i, x, y, s, len, direction)
+    d.U = 0;
+    d.D = 0;
+    d.R = 0;
+    d.L = 0;
+    d.(direction) = len;
+    set(LinesHdl(i), 'XData', [x-RECT.W*s-d.L x+RECT.W*s+d.R], 'YData', [y-RECT.W*s-d.U y+RECT.W*s+d.D]);    
+end
 
 CMD.Fuzzy = 0;
 CMD.jumpCount = 0;
@@ -128,28 +165,140 @@ function CMD_reset()
     CMD.jumpWait = 38;
 end
 
+CMDENV.birdX = 0;
 CMDENV.birdY = 0;
 CMDENV.towerX1 = 0;
 CMDENV.towerY1 = 0;
 
 CMDENV.ScreenX = [];
 CMDENV.VOffset = [];
+CMDENV.towersX = [];
+CMDENV.towersY = [];
+
+CMDENV.towersDistX = [];
+
+
+
+CMDENV.gapFront = [];
+CMDENV.gapBack = [];
+CMDENV.gapTop = [];
+CMDENV.gapCenter = [];
+CMDENV.gapBottom = [];
+
+CMDENV.toGround = 0;
+CMDENV.colisions = 0;
+CMDENV.score = 0;
+CMDENV.index = 1;
+CMDENV.overTube = false;
+
+
 function CMDENV_scan()
-    CMDENV.birdY = Bird.SpeedY;
+    screenHeight = 195;
+    CMDENV.birdX = Bird.ScreenPos(1);
+    CMDENV.birdY = screenHeight - Bird.ScreenPos(2);
     CMDENV.towerX1 = Tubes.ScreenX(Tubes.FrontP);
-    CMDENV.towerY1 = Tubes.VOffset(Tubes.FrontP);
-%     CMDENV
-%     if TUBE
-%     CMDENV.ScreenX = Tubes.ScreenX;
-%     end
-%     CMDENV.VOffset = TUBE.VOffset;
-%     CMDENV
-%     GAMEPLAY
-%     TUBE
-%     Tubes
+    CMDENV.towerY1 = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(Tubes.FrontP);
+    CMDENV.toGround = Tubes.FrontP
+    CMDENV.ScreenX = Tubes.ScreenX;
+    CMDENV.VOffset = Tubes.VOffset;
     
-%     CMDENV
-    print({'CMDENV.birdY'}, TEXT.th2);
+    CMDENV.towersX = CMDENV.ScreenX - CMDENV.birdX;
+    
+    CMDENV.towersDistX = CMDENV.ScreenX - CMDENV.birdX + TUBE.WIDTH;
+
+    CMDENV.gapFront = ones(1,2)*1000;
+    CMDENV.gapBack = ones(1,2)*1000;
+    
+    CMDENV.gapTop = ones(1,2)*1000;
+    CMDENV.gapCenter = ones(1,2)*1000;
+    CMDENV.gapBottom = ones(1,2)*1000;
+
+    
+    
+    CMDENV.gapBack(1) = min(CMDENV.towersDistX(CMDENV.towersDistX>0)); 
+    index = find(CMDENV.towersDistX==CMDENV.gapBack(1));
+    nextIndex = mod(index,3)+1;
+    CMDENV.gapBack(2) = CMDENV.towersDistX(nextIndex);
+    CMDENV.gapFront(1) = CMDENV.gapBack(1) - TUBE.WIDTH;
+    CMDENV.gapFront(2) = CMDENV.gapBack(2) - TUBE.WIDTH;
+    
+    CMDENV.index = index;
+    CMDENV.overTube = index == Tubes.FrontP && CMDENV.score > 0 ;
+    
+    towerGap = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(index);
+    towerGapNext = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(nextIndex);
+
+    CMDENV.gapTop(1) = towerGap - 18;
+    CMDENV.gapBottom(1) = towerGap + 32 ;
+    CMDENV.gapCenter(1) = towerGap + 7;    
+    CMDENV.gapTop(2) = towerGapNext - 18;
+    CMDENV.gapBottom(2) = towerGapNext + 32 ;
+    CMDENV.gapCenter(2) = towerGapNext + 7;
+    
+    IMG_dot(5, Tubes.ScreenX(index), CMDENV.gapCenter(1), 1);
+    IMG_dot(6, Tubes.ScreenX(index), CMDENV.gapTop(1), 1);
+    IMG_dot(7, Tubes.ScreenX(index), CMDENV.gapBottom(1), 1);        
+    IMG_dot(11, Tubes.ScreenX(nextIndex), CMDENV.gapCenter(2), 0.7);
+    IMG_dot(12, Tubes.ScreenX(nextIndex), CMDENV.gapTop(2), 0.5);
+    IMG_dot(13, Tubes.ScreenX(nextIndex), CMDENV.gapBottom(2), 0.5);
+    
+    CMDENV.gapTop(1) = screenHeight - CMDENV.gapTop(1) - CMDENV.birdY;
+    CMDENV.gapBottom(1) = screenHeight - CMDENV.gapBottom(1) - CMDENV.birdY;
+    CMDENV.gapCenter(1) = screenHeight - CMDENV.gapCenter(1) - CMDENV.birdY;
+    CMDENV.gapTop(2) = screenHeight - CMDENV.gapTop(1) - CMDENV.birdY;
+    CMDENV.gapBottom(1) = screenHeight - CMDENV.gapBottom(1) - CMDENV.birdY;
+    CMDENV.gapCenter(1) = screenHeight - CMDENV.gapCenter(1) - CMDENV.birdY;
+
+    
+    
+    for i=1:3
+       x = CMDENV.birdX;
+       y =  100;
+       IMG_dot(i, x, y, 0.5*i)
+    end
+    
+
+
+    x = Bird.ScreenPos(1);
+    y = Bird.ScreenPos(2);
+    
+    % distance down
+    
+    CMDENV.toGround =  CMDENV.birdY;
+    
+    if CMDENV.overTube    
+        CMDENV.toGround = -CMDENV.gapBottom(1);
+    end
+    
+    IMG_line(2, x, y+0, 1, CMDENV.gapFront(1), 'R')
+    IMG_line(3, x, y+2, 1, CMDENV.gapBack(1), 'R')
+
+%     dd = 
+
+%     dist= max(CMDENV.towersDistX(CMDENV.towersDistX>0))-10
+%     dist = 195-Bird.ScreenPos(2);
+   
+    
+    IMG_line(4, x, 193, 1, CMDENV.gapFront(2), 'R')
+    IMG_line(5, x, 195, 1, CMDENV.gapBack(2), 'R')
+    
+    IMG_line(6, x+CMDENV.gapFront(1), y, 1, CMDENV.gapTop(1), 'U')
+    IMG_line(7, x+CMDENV.gapFront(1)-2, y, 1, CMDENV.gapBottom(1), 'U')
+    IMG_line(8, x+CMDENV.gapFront(1)-4, y, 1, CMDENV.gapCenter(1), 'U')
+
+    IMG_line(9, x, y, 1, CMDENV.birdY, 'D')
+    IMG_line(10, x+2, y, 1, CMDENV.toGround, 'D')
+
+    
+    if CMDENV.overTube
+        IMG_dot(8, x, y, 5);
+    else
+        IMG_dot(8, x, y, 0.1);
+    end
+%     Bird
+%     Tubes
+    CMDENV
+%     TUBE
 end
 
 function CMDENV_report()
@@ -163,12 +312,19 @@ function [okJump] = CMD_Jump(currTime)
         CMD.jumpCount = CMD.jumpCount + 1;
         CMD.timeToJump = CMD.timeToJump + CMD.jumpWait;
         okJump = 1;
-%         CMDENV_scan();
     end
 end
 
+function CMD_addScore()
+    if Tubes.ScreenX(Tubes.FrontP) < 40 && Flags.NextTubeReady
+        Flags.NextTubeReady = false;
+        CMDENV.score = CMDENV.score + 1;
+    end
+end
 
-
+function CMD_colide()
+    CMDENV.colisions = CMDENV.colisions + 1;
+end
 
 
 %% -- Game Logic --
@@ -298,7 +454,7 @@ while 1
              
             end
        end
-       
+       CMD_addScore()
        
 
     end
@@ -392,6 +548,7 @@ end
 
 %% --- Graphics Section ---
     function initWindow()
+        IMG_initShape();
         % initWindow - initialize the main window, axes and image objects
         MainFigureHdl = figure('Name', ['Flappy Bird ' GameVer], ...
             'NumberTitle' ,'off', ...
@@ -437,9 +594,16 @@ end
             'Visible', 'on');
         end
         
-        DotsHdl = zeros(1,3);
-        for i = 1:3
-            DotsHdl(i) = image([0 26-1], [0 304-1], [],...
+        DotsHdl = zeros(1,DOT.Count);
+        for i = 1:DOT.Count
+            DotsHdl(i) = image([0 DOT.R], [0 DOT.R], [],...
+            'Parent', MainAxesHdl,...
+            'Visible', 'on');
+        end
+        
+        LinesHdl = zeros(1,RECT.Count);
+        for i = 1:RECT.Count
+            LinesHdl(i) = image([0 RECT.W], [3 3+RECT.W], [],...
             'Parent', MainAxesHdl,...
             'Visible', 'on');
         end
@@ -479,9 +643,11 @@ end
             redrawTube(i);
         end
         
-        for i = 1:3
-            set(DotsHdl(i),'CData',Sprites.TubGap.CData,...
-                'AlphaData',Sprites.TubGap.Alpha);
+        for i = 1:DOT.Count
+            set(DotsHdl(i),'CData',DOT.CData, 'AlphaData',DOT.Alpha);
+        end
+        for i = 1:RECT.Count
+            set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha);
         end
         
         showPrint('on')
@@ -557,6 +723,7 @@ end
         
         if Bird.ScreenPos(2) < GapY(1)+4 || Bird.ScreenPos(2) > GapY(2)-4
             collide_flag = SET.colision;
+            CMD_colide()
         end
         return;
     end
