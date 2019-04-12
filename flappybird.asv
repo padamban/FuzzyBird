@@ -4,7 +4,7 @@
 function flappybird
 
 %% System Variables:
-GameVer = '1.0';          % The first full playable game
+GameVer = '2.0';          % The first full playable game
 
 %% Constant Definitions:
 GAME.MAX_FRAME_SKIP = [];
@@ -58,7 +58,7 @@ FlyKeyStatus = false; %(size(FlyKeyNames));
 FlyKeyValid = true(size(FlyKeyNames));     
 
 FuzzyFlyKeyNames = {'uparrow'};
-
+RestartKeyNames = {'r'};
 
 
 
@@ -104,8 +104,11 @@ Tubes.VOffset = ceil(rand(1,3)*105);
 
 % Command
 SET.colision = 0;
-SET.frameDelay = 0; % ms
-SET.scanVisu = 1; % Visualize the scanned values of CMDENV
+SET.scanVisu = 1;       % Visualize the scanned values of CMDENV - 0, 1, 2
+SET.slow = 1;
+SET.YTubeOffsetRange = 105; % max     = 105
+SET.XTubeOffsetRange = 105; % default = 0
+SET.XTubeOffsetMin = 50;   % default = 80 
 
 DOT.CData = [];
 DOT.Alpha = [];
@@ -118,9 +121,6 @@ RECT.Alpha2 = [];
 RECT.Count = 30;
 RECT.RectIdx = RECT.Count - 5;
 RECT.W = 0.3;
-
-
-
 
 function IMG_initShape()
     size = 77;       
@@ -142,37 +142,37 @@ function IMG_initShape()
     w = 5;
     RECT.Alpha2(w:size-w+1, w:size-w+1) = 0;
 end
-
-
-     
-function IMG_initVisuElements()   
-    for i = 1:DOT.Count
-        set(DotsHdl(i),'CData',DOT.CData, 'AlphaData',DOT.Alpha);
-    end
-    for i = 1:RECT.Count
-        if i < RECT.RectIdx 
-            set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha);
-        else
-            set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha2);
+  
+function IMG_initVisuElements()  
+    if SET.scanVisu > 0
+        for i = 1:DOT.Count
+            set(DotsHdl(i),'CData',DOT.CData, 'AlphaData',DOT.Alpha);
+        end
+        for i = 1:RECT.Count
+            if i < RECT.RectIdx 
+                set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha);
+            else
+                set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha2);
+            end
         end
     end
 end
 
-
-function IMG_initVisu()            
-    DotsHdl = zeros(1,DOT.Count);
-    for i = 1:DOT.Count
-        DotsHdl(i) = image([0 DOT.R], [0 DOT.R], [],...
-        'Parent', MainAxesHdl,...
-        'Visible', 'on');        
+function IMG_initVisu()     
+    if SET.scanVisu > 0
+        DotsHdl = zeros(1,DOT.Count);
+        for i = 1:DOT.Count
+            DotsHdl(i) = image([0 DOT.R], [0 DOT.R], [],...
+            'Parent', MainAxesHdl,...
+            'Visible', 'on');        
+        end
+        LinesHdl = zeros(1,RECT.Count);
+        for i = 1:RECT.Count
+            LinesHdl(i) = image([0 RECT.W], [3 3+RECT.W], [],...
+            'Parent', MainAxesHdl,...
+            'Visible', 'on');
+        end  
     end
-
-    LinesHdl = zeros(1,RECT.Count);
-    for i = 1:RECT.Count
-        LinesHdl(i) = image([0 RECT.W], [3 3+RECT.W], [],...
-        'Parent', MainAxesHdl,...
-        'Visible', 'on');
-    end        
 end
 
 function [i] = IMG_dot(i, x, y, s)
@@ -198,14 +198,6 @@ CMD.timeToJump = 0;
 CMD.currTime = 0;
 CMD.jumpWait = 0;
 
-function CMD_reset()
-    CMD.Fuzzy = 0;
-    CMD.jumpCount = 0;
-    CMD.timeToJump = 0;
-    CMD.currTime = 0;
-    CMD.jumpWait = 38;
-end
-
 CMDENV.birdX = 0;
 CMDENV.birdY = 0;
 CMDENV.gapFront = ones(1,2)*1000;
@@ -215,14 +207,38 @@ CMDENV.gapCenter = ones(1,2)*1000;
 CMDENV.gapBottom = ones(1,2)*1000;
 CMDENV.toGround = 0;
 CMDENV.colisions = 0;
+CMDENV.jumps = 0;
 CMDENV.score = 0;
 CMDENV.overTube = false;
 CMDENV.coliding = false;
 CMDENV.gameover = false;
 
-function CMDENV_scan()
+function CMD_reset()
+    CMD.Fuzzy = 0;
+    CMD.jumpCount = 0;
+    CMD.timeToJump = 0;
+    CMD.currTime = 0;
+    CMD.jumpWait = 38;
+    CMDENV.birdX = 0;
+    CMDENV.birdY = 0;
+    CMDENV.gapFront = ones(1,2)*1000;
+    CMDENV.gapBack = ones(1,2)*1000;
+    CMDENV.gapTop = ones(1,2)*1000;
+    CMDENV.gapCenter = ones(1,2)*1000;
+    CMDENV.gapBottom = ones(1,2)*1000;
+    CMDENV.toGround = 0;
+    CMDENV.colisions = 0;
+    CMDENV.jumps = 0;
+    CMDENV.score = 0;
+    CMDENV.overTube = false;
+    CMDENV.coliding = false;
+    CMDENV.gameover = false;
+end
+
+function CMDENV_scan()    
     if ~CMDENV.gameover
         screenHeight = 195;
+        CMDENV.jumps = CMD.jumpCount;
         CMDENV.birdX = Bird.ScreenPos(1);
         CMDENV.birdY = screenHeight - Bird.ScreenPos(2);    
         towersDistX = Tubes.ScreenX - CMDENV.birdX + TUBE.WIDTH;    
@@ -246,13 +262,15 @@ function CMDENV_scan()
         lineIDX = 1;
         rectIDX = RECT.RectIdx;
 
-        if SET.scanVisu
+        if SET.scanVisu > 0
             dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(index), CMDENV.gapCenter(1), 1);
             dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(index), CMDENV.gapTop(1), 1);
-            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(index), CMDENV.gapBottom(1), 1);        
-            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapCenter(2), 0.7);
-            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapTop(2), 0.5);
-            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapBottom(2), 0.5);
+            dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(index), CMDENV.gapBottom(1), 1);  
+            if SET.scanVisu > 1
+                dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapCenter(2), 0.7);
+                dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapTop(2), 0.5);
+                dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapBottom(2), 0.5);
+            end
         end
     
         CMDENV.gapTop(1) = screenHeight - CMDENV.gapTop(1) - CMDENV.birdY;
@@ -267,22 +285,27 @@ function CMDENV_scan()
             CMDENV.toGround = -CMDENV.gapBottom(1);
         end
 
-        if SET.scanVisu 
+        if SET.scanVisu > 0
             x = Bird.ScreenPos(1);
             y = Bird.ScreenPos(2);
             lineIDX = IMG_line(lineIDX, x, y+0, 1, CMDENV.gapFront(1), 'R');
-            lineIDX = IMG_line(lineIDX, x, y+2, 1, CMDENV.gapBack(1), 'R');     
-            lineIDX = IMG_line(lineIDX, x, 193, 1, CMDENV.gapFront(2), 'R');
-            lineIDX = IMG_line(lineIDX, x, 195, 1, CMDENV.gapBack(2), 'R');
+            lineIDX = IMG_line(lineIDX, x, y+2, 1, CMDENV.gapBack(1), 'R');   
+
             lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(1), y, 1, CMDENV.gapTop(1), 'U');
             lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(1)-2, y, 1, CMDENV.gapBottom(1), 'U');
             lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(1)-4, y, 1, CMDENV.gapCenter(1), 'U');
-            lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(2), y, 1, CMDENV.gapTop(2), 'U');
-            lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(2)-2, y, 1, CMDENV.gapBottom(2), 'U');
-            lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(2)-4, y, 1, CMDENV.gapCenter(2), 'U');
+
             lineIDX = IMG_line(lineIDX, x, y, 1, CMDENV.birdY, 'D');
             lineIDX = IMG_line(lineIDX, x+2, y, 1, CMDENV.toGround, 'D');
 
+            if SET.scanVisu > 1
+                lineIDX = IMG_line(lineIDX, x, 193, 1, CMDENV.gapFront(2), 'R');
+                lineIDX = IMG_line(lineIDX, x, 195, 1, CMDENV.gapBack(2), 'R');
+                lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(2), y, 1, CMDENV.gapTop(2), 'U');
+                lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(2)-2, y, 1, CMDENV.gapBottom(2), 'U');
+                lineIDX = IMG_line(lineIDX, x+CMDENV.gapFront(2)-4, y, 1, CMDENV.gapCenter(2), 'U');
+            end
+            
             if CMDENV.coliding
                 rectIDX = IMG_line(rectIDX, x, y, 1, 10, 'all');
             else
@@ -296,15 +319,11 @@ function CMDENV_scan()
             end
         end
     end
-
-%     Bird
-%     Tubes
-    CMDENV
-%     TUBE
+%     CMDENV
 end
 
 function CMDENV_report()
-    print({'Bird.LastHeight', 'Bird.SpeedY'}, TEXT.th1);
+    print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'SET.slow' }, TEXT.th1);
 end
 
 function CMD_addScore()
@@ -329,11 +348,26 @@ function CMD_gameover()
     end
 end
 
-
 function CMD_fly()
     CMDENV.coliding = 0;
     CMDENV.gameover = 0;
+end
+    
+function CMD_restart() 
+    function press()
+        FlyKeyStatus = 1;
+        FlyKeyValid = 0;
+        CMD.Fuzzy = 1;
+    end    
+    if ~Flags.PreGame
+        gameover = true;
+   
+        T1 = timer('StartDelay',1.5,'TimerFcn',@(src,evt)press());
+        T2 = timer('StartDelay',3,'TimerFcn',@(src,evt)press());
 
+        start(T1);
+        start(T2);
+    end
 end
 
 function [okJump] = CMD_Jump(currTime)
@@ -341,19 +375,11 @@ function [okJump] = CMD_Jump(currTime)
     CMD.currTime = currTime;
     if(CMD.timeToJump < CMD.currTime)
         CMD.jumpCount = CMD.jumpCount + 1;
-        CMD.timeToJump = CMD.timeToJump + CMD.jumpWait;
+        CMD.timeToJump = currTime + CMD.jumpWait;
         okJump = 1;
     end
 end
 
-
-
-
-%% -- Game Logic --
-initVariables();
-initWindow();
-
-% Initilize text elements for displaying variables on the GUI
 
 TEXT.th1 = [];
 TEXT.th2 = [];
@@ -372,6 +398,7 @@ function initPrint(i, j)
         TEXT.th2 = [TEXT.th2, text(x, y, '', 'Visible', 'off')];
     end
 end
+
 function print(vars, th)
     for i_var =1:length(vars)
         if i_var<=length(th)          
@@ -379,6 +406,7 @@ function print(vars, th)
         end
     end
 end
+
 function showPrint(onOff)
     for i=1:length(TEXT.th1)
         set( TEXT.th1(i) , 'Visible', onOff)
@@ -388,13 +416,22 @@ function showPrint(onOff)
     end
 end
 
-initPrint(2, 8);
+
+
+
+%% -- Game Logic --
+initVariables();
+initWindow();
+
+% Initilize text elements for displaying variables on the GUI
+
+
+initPrint(8, 8);
 
 
 
 
 % Main Game
-
 
 function hop(gameover)
     if ~gameover
@@ -430,7 +467,6 @@ while 1
     while (curTime >= ((CurrentFrameNo) * GAME.FRAME_DURATION) && loops < GAME.MAX_FRAME_SKIP)
         
         CMDENV_scan()
-        pause(SET.frameDelay/1000);
         
         if FlyKeyStatus  % If left key is pressed    
             hop(gameover);
@@ -524,7 +560,7 @@ end
         GAME.WINDOW_RES = [256 144];
         GAME.FLOOR_HEIGHT = 56;
         GAME.FLOOR_TOP_Y = GAME.RESOLUTION(1) - GAME.FLOOR_HEIGHT + 1;
-        GAME.N_UPDATE_PERSEC = 60;
+        GAME.N_UPDATE_PERSEC = 60/SET.slow;
         GAME.FRAME_DURATION = 1/GAME.N_UPDATE_PERSEC;
         
         TUBE.H_SPACE = 80;           % Horizontal spacing between two tubs
@@ -647,7 +683,7 @@ end
         set(FloorSpriteHdl, 'CData',Sprites.Floor.CData);
         Tubes.FrontP = 1;              % 1-3
         Tubes.ScreenX = [300 380 460]-2; % The middle of each tube
-        Tubes.VOffset = ceil(rand(1,3)*105);
+        Tubes.VOffset = ceil(rand(1,3)*SET.YTubeOffsetRange);
         refreshTubes;
         for i = 1:3
             set(TubeSpriteHdl(i),'CData',Sprites.TubGap.CData,...
@@ -692,8 +728,14 @@ end
     function scrollTubes(offset)
         Tubes.ScreenX = Tubes.ScreenX - offset;
         if Tubes.ScreenX(Tubes.FrontP) <=-26
-            Tubes.ScreenX(Tubes.FrontP) = Tubes.ScreenX(Tubes.FrontP) + 240;
-            Tubes.VOffset(Tubes.FrontP) = ceil(rand*105);
+            off.randomX = ceil(rand*SET.XTubeOffsetRange) ;
+            off.randomY = ceil(rand*SET.YTubeOffsetRange) ;
+            off.FrontP = Tubes.FrontP;
+            off.BackP = mod(Tubes.FrontP + 1,3)+1;
+            off.minX = SET.XTubeOffsetMin
+
+            Tubes.ScreenX(Tubes.FrontP) = Tubes.ScreenX(off.BackP) + off.minX + off.randomX;
+            Tubes.VOffset(Tubes.FrontP) = off.randomY;
             redrawTube(Tubes.FrontP);
             Tubes.FrontP = mod((Tubes.FrontP),3)+1;
             Flags.NextTubeReady = true;
@@ -758,7 +800,7 @@ end
 %% -- Callbacks --
     function stl_KeyUp(hObject, eventdata, handles)
         keyU = get(hObject,'CurrentKey');
-%         % Remark the released keys as valid
+        % Remark the released keys as valid
         FlyKeyValid = FlyKeyValid | strcmp(keyU, FlyKeyNames);
 
         
@@ -781,6 +823,8 @@ end
                 CloseReq = true; 
             case strcmp(curKey, FuzzyFlyKeyNames) 
                 CMD.Fuzzy = ~CMD.Fuzzy; 
+            case strcmp(curKey, RestartKeyNames) 
+                CMD_restart();
         end
     end
     function stl_CloseReqFcn(hObject, eventdata, handles)
