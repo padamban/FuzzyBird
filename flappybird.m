@@ -3,142 +3,36 @@
 
 function flappybird
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 %% System Variables:
-GameVer = '2.0';          % The first full playable game
-
-%% Constant Definitions:
-GAME.MAX_FRAME_SKIP = [];
-
-GAME.RESOLUTION = [];       % Game Resolution, default at [256 144]
-GAME.WINDOW_SCALE = 2;     % The actual size of the window divided by resolution
-GAME.FLOOR_TOP_Y = [];      % The y position of upper crust of the floor.
-GAME.N_UPDATES_PER_SEC = [];
-GAME.FRAME_DURATION = [];
-GAME.GRAVITY = 0.1356; %0.15; %0.2; %1356;  % empirical gravity constant
-      
-TUBE.MIN_HEIGHT = [];       % The minimum height of a tube
-TUBE.RANGE_HEIGHT = [];     % The range of the height of a tube
-TUBE.SUM_HEIGHT = [];       % The summed height of the upper and low tube
-TUBE.H_SPACE = [];           % Horizontal spacing between two tubs
-TUBE.V_SPACE = [];           % Vertical spacing between two tubs
-TUBE.WIDTH   = [];            % The 'actual' width of the detection box
-
-GAMEPLAY.RIGHT_X_FIRST_TUBE = [];  % Xcoord of the right edge of the 1st tube
+GameVer = '2.0';          
+% 2.0 - Controllable game
+% 1.0 - The first full playable game
 
 
-%% Handles
-MainFigureHdl = [];
-MainAxesHdl = [];
-MainCanvasHdl = [];
-BirdSpriteHdl = [];
-TubeSpriteHdl = [];
-FloorSpriteHdl = [];
-FloorAxesHdl = [];
-DotsHdl = [];
-LinesHdl = [];
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% CONTROL EXTENSION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Game Parameters
-MainFigureInitPos = [];
-MainFigureSize = [];
-MainAxesInitPos = []; % The initial position of the axes IN the figure
-MainAxesSize = [];
-
-InGameParams.CurrentBkg = 1;
-InGameParams.CurrentBird = 1;
-
-Flags.IsGameStarted = true;     %
-Flags.IsFirstTubeAdded = false; % Has the first tube been added to TubeLayer
-Flags.ResetFloorTexture = true; % Result the pointer for the floor texture
-Flags.PreGame = true;
-Flags.NextTubeReady = true;
-CloseReq = false;
-
-FlyKeyNames = {'space'};
-FlyKeyStatus = false; %(size(FlyKeyNames));
-FlyKeyValid = true(size(FlyKeyNames));     
-
-FuzzyFlyKeyNames = {'uparrow'};
-RestartKeyNames = {'r'};
-
-
-
-
-
-
-%% Canvases:
-MainCanvas = [];
-
-% The scroll layer for the tubes
-TubeLayer.Alpha = [];
-TubeLayer.CData = [];
-
-
-%% RESOURCES:
-Sprites = [];
-
-%% Positions:
-Bird.COLLIDE_MASK = [];
-Bird.INIT_SCREEN_POS = [45 100];                    % In [x y] order;
-Bird.WorldX = [];
-Bird.ScreenPos = [45 100]; %[45 100];   % Center = The 9th element horizontally (1based)
-                                     % And the 6th element vertically 
-Bird.SpeedXY = [ 0];
-Bird.Angle = 0;
-Bird.XGRID = [];
-Bird.YGRID = [];
-Bird.CurFrame = 1;
-Bird.SpeedY = 0;
-Bird.LastHeight = 0;
-
-SinYRange = 44;
-SinYPos = [];
-SinY = [];
-
-
-Tubes.FrontP = 1;              % 1-3
-Tubes.ScreenX = [300 380 460]-2; % The middle of each tube
-Tubes.VOffset = ceil(rand(1,3)*105); 
-
-
-
-
-% Command
-SET.colision = 0;
+% Setup
+SET.colision = 0;       % enable colision
 SET.scanVisu = 1;       % Visualize the scanned values of CMDENV - 0, 1, 2
-SET.slow = 1;
-SET.YTubeOffsetRange = 105; % max     = 105
-SET.XTubeOffsetRange = 299; % default = 0
-SET.XTubeOffsetMin = 65;   % default = 80 
+SET.YTubeOffsetRange = 105;     % max     = 105
+SET.XTubeOffsetRange = 0;     % default = 0
+SET.XTubeOffsetMin = 80;        % default = 80 
 
-DOT.CData = [];
-DOT.Alpha = [];
+
+% Visu
+DOT.CData = [];                 % rgb
+DOT.Alpha = [];                 % filled circle mask
 DOT.R = 2;
 DOT.Count = 30;
-
-RECT.CData = [];
-RECT.Alpha = [];
-RECT.Alpha2 = [];
-RECT.Count = 30;
+RECT.CData = [];                % rgb
+RECT.Alpha = [];                % filled rectangle mask
+RECT.Alpha2 = [];               % hollow rectangle mask
+RECT.Count = 30;                % n of initialized elements
 RECT.RectIdx = RECT.Count - 5;
 RECT.W = 0.3;
 
+% Initalize the circles, rectangles and lines.
 function IMG_initShape()
     size = 77;       
     DOT.CData = uint8(zeros(size,size,3));
@@ -214,6 +108,8 @@ CMD.jumpCount = 0;
 CMD.timeToJump = 0;
 CMD.currTime = 0;
 CMD.jumpWait = 0;
+CMD.speedUpdating = 0;
+CMD.relativeSpeed = 1;  
 
 CMDENV.birdX = 0;
 CMDENV.birdY = 0;
@@ -336,12 +232,12 @@ function CMDENV_scan()
             end
         end
     end
-    CMDENV
+%     CMDENV
 %     Tubes
 end
 
 function CMDENV_report()
-    print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'SET.slow' }, TEXT.th1);
+    PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMD.relativeSpeed', 'CMD.speedUpdating' }, TEXT.th1);
 end
 
 function CMD_addScore()
@@ -398,26 +294,50 @@ function [okJump] = CMD_Jump(currTime)
     end
 end
 
+DIAG.Game = 0;
+DIAG.CurrentTime = 0;
+DIAG.FRAME_DURATION = 0;
+DIAG.timeToProcess = 0;
+DIAG.deltaToProcess = 0;
+DIAG.StageStartTime = 0;
+DIAG.CurrentFrameNo = 0;
+DIAG.speedUpdating = 0;
+
+function CMD_setSpeedX(sign)
+    if ~CMD.speedUpdating && Flags.PreGame
+        step = 0.2;
+        speed = min(max(CMD.relativeSpeed + step*sign,step),30*step);
+        CMD.relativeSpeed = speed;    
+        GAME.N_UPDATE_PERSEC = 60*CMD.relativeSpeed;
+        GAME.FRAME_DURATION = 1/GAME.N_UPDATE_PERSEC;
+        GAME.CurrentFrameNo = GAME.CurrentFrameNo + sign*100;
+        CMD.speedUpdating = 1;
+        CMDENV_report();
+    end
+end
+
 
 TEXT.th1 = [];
 TEXT.th2 = [];
+TEXT.counts = [8, 8];
 
-function initPrint(i, j)
+function PRINT_print_init()
     x = 5;
     y = 0;
     dy = 9;
-    for ii=1:i
+    for ii=1:TEXT.counts(1)
         y = y + dy;
         TEXT.th1 = [TEXT.th1, text(x, y, '', 'Visible', 'off')];        
     end    
     y = y + dy/2;
-    for jj=1:j
+    for jj=1:TEXT.counts(2)
+        
         y = y + dy;
         TEXT.th2 = [TEXT.th2, text(x, y, '', 'Visible', 'off')];
     end
 end
 
-function print(vars, th)
+function PRINT_print(vars, th)
     for i_var =1:length(vars)
         if i_var<=length(th)          
             set(th(i_var), 'String', sprintf('%s = %.2f', vars{i_var}, eval(vars{i_var})));            
@@ -425,7 +345,7 @@ function print(vars, th)
     end
 end
 
-function showPrint(onOff)
+function PRINT_show(onOff)
     for i=1:length(TEXT.th1)
         set( TEXT.th1(i) , 'Visible', onOff)
     end         
@@ -437,6 +357,143 @@ end
 
 
 
+FuzzyFlyKeyNames = {'uparrow'};
+RestartKeyNames = {'r'};
+SpeedxAddKeyNames = {'add'};
+SpeedxSubtractKeyNames = {'subtract'};
+
+function BUTTONS_manager(key)
+    switch true
+        case strcmp(key, FuzzyFlyKeyNames) 
+            CMD.Fuzzy = ~CMD.Fuzzy; 
+        case strcmp(key, RestartKeyNames) 
+            CMD_restart();
+        case strcmp(key, SpeedxAddKeyNames) 
+            CMD_setSpeedX(1);
+        case strcmp(key, SpeedxSubtractKeyNames) 
+            CMD_setSpeedX(-1);           
+    end
+end
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+
+
+
+
+
+
+
+%% Constant Definitions:
+GAME.MAX_FRAME_SKIP = [];
+
+GAME.RESOLUTION = [];       % Game Resolution, default at [256 144]
+GAME.WINDOW_SCALE = 2;     % The actual size of the window divided by resolution
+GAME.FLOOR_TOP_Y = [];      % The y position of upper crust of the floor.
+GAME.N_UPDATES_PER_SEC = [];
+GAME.FRAME_DURATION = [];
+GAME.GRAVITY = 0.1356; %0.15; %0.2; %1356;  % empirical gravity constant
+GAME.CurrentFrameNo = 0;      
+GAME.CurrentTime = 0;
+GAME.StageStartTime = 0;
+
+
+TUBE.MIN_HEIGHT = [];       % The minimum height of a tube
+TUBE.RANGE_HEIGHT = [];     % The range of the height of a tube
+TUBE.SUM_HEIGHT = [];       % The summed height of the upper and low tube
+TUBE.H_SPACE = [];           % Horizontal spacing between two tubs
+TUBE.V_SPACE = [];           % Vertical spacing between two tubs
+TUBE.WIDTH   = [];            % The 'actual' width of the detection box
+
+GAMEPLAY.RIGHT_X_FIRST_TUBE = [];  % Xcoord of the right edge of the 1st tube
+
+
+%% Handles
+MainFigureHdl = [];
+MainAxesHdl = [];
+MainCanvasHdl = [];
+BirdSpriteHdl = [];
+TubeSpriteHdl = [];
+FloorSpriteHdl = [];
+FloorAxesHdl = [];
+DotsHdl = [];
+LinesHdl = [];
+
+%% Game Parameters
+MainFigureInitPos = [];
+MainFigureSize = [];
+MainAxesInitPos = []; % The initial position of the axes IN the figure
+MainAxesSize = [];
+
+InGameParams.CurrentBkg = 1;
+InGameParams.CurrentBird = 1;
+
+Flags.IsGameStarted = true;     %
+Flags.IsFirstTubeAdded = false; % Has the first tube been added to TubeLayer
+Flags.ResetFloorTexture = true; % Result the pointer for the floor texture
+Flags.PreGame = true;
+Flags.NextTubeReady = true;
+CloseReq = false;
+
+FlyKeyNames = {'space'};
+FlyKeyStatus = false; %(size(FlyKeyNames));
+FlyKeyValid = true(size(FlyKeyNames));     
+
+
+
+
+
+
+
+
+%% Canvases:
+MainCanvas = [];
+
+% The scroll layer for the tubes
+TubeLayer.Alpha = [];
+TubeLayer.CData = [];
+
+
+%% RESOURCES:
+Sprites = [];
+
+%% Positions:
+Bird.COLLIDE_MASK = [];
+Bird.INIT_SCREEN_POS = [45 100];                    % In [x y] order;
+Bird.WorldX = [];
+Bird.ScreenPos = [45 100]; %[45 100];   % Center = The 9th element horizontally (1based)
+                                     % And the 6th element vertically 
+Bird.SpeedXY = [ 0];
+Bird.Angle = 0;
+Bird.XGRID = [];
+Bird.YGRID = [];
+Bird.CurFrame = 1;
+Bird.SpeedY = 0;
+Bird.LastHeight = 0;
+
+SinYRange = 44;
+SinYPos = [];
+SinY = [];
+
+
+Tubes.FrontP = 1;              % 1-3
+Tubes.ScreenX = [300 380 460]-2; % The middle of each tube
+Tubes.VOffset = ceil(rand(1,3)*105); 
+
+
+
+
+
 %% -- Game Logic --
 initVariables();
 initWindow();
@@ -444,7 +501,7 @@ initWindow();
 % Initilize text elements for displaying variables on the GUI
 
 
-initPrint(8, 8);
+PRINT_print_init();
 
 
 
@@ -468,24 +525,32 @@ function hop(gameover)
 end
 
 
-
 while 1
+DIAG.Game = DIAG.Game + 1;
 initGame();
-CurrentFrameNo = double(0);
+GAME.CurrentFrameNo = double(0);
 collide = false;
 fall_to_bottom = false;
 gameover = false;
-stageStartTime = tic;
+GAME.StageStartTime = tic;
 IMG_initShape();
 CMD_reset();
 while 1
     loops = 0;
+    GAME.CurrentTime = toc(GAME.StageStartTime);
+
+
     
-    curTime = toc(stageStartTime);
-    while (curTime >= ((CurrentFrameNo) * GAME.FRAME_DURATION) && loops < GAME.MAX_FRAME_SKIP)
+    DIAG.CurrentTime = GAME.CurrentTime;
+    DIAG.CurrentFrameNo = GAME.CurrentFrameNo;
+    DIAG.FRAME_DURATION = GAME.FRAME_DURATION;
+    DIAG.timeToProcess = GAME.CurrentFrameNo * GAME.FRAME_DURATION;
+    DIAG.deltaToProcess = DIAG.CurrentTime - DIAG.timeToProcess ;
+    DIAG.StageStartTime = GAME.StageStartTime;
+    while (GAME.CurrentTime >= ((GAME.CurrentFrameNo) * GAME.FRAME_DURATION) && loops < GAME.MAX_FRAME_SKIP)
         
         CMDENV_scan()
-        
+
         if FlyKeyStatus  % If left key is pressed    
             hop(gameover);
         end
@@ -499,14 +564,14 @@ while 1
             end
         end
         if CMD.Fuzzy
-            okJump = CMD_Jump(CurrentFrameNo);
+            okJump = CMD_Jump(GAME.CurrentFrameNo);
             if okJump
                 hop(gameover);
             end
         end
         
         
-        Bird.CurFrame = 3 - floor(double(mod(CurrentFrameNo, 9))/3);
+        Bird.CurFrame = 3 - floor(double(mod(GAME.CurrentFrameNo, 9))/3);
 
       %% Cycling the Palette
         % Update the cycle variables
@@ -515,7 +580,7 @@ while 1
            gameover = true;
            CMD_reset();
        end
-       CurrentFrameNo = CurrentFrameNo + 1;
+       GAME.CurrentFrameNo = GAME.CurrentFrameNo + 1;
        loops = loops + 1;
        frame_updated = true;
        
@@ -524,7 +589,7 @@ while 1
             Bird.ScreenPos(2) = 200-5;
             gameover = true;
             CMD_reset();
-            CMD_gameover()
+            CMD_gameover();
 
             if abs(Bird.Angle - pi/2) < 1e-3
                 fall_to_bottom = true;
@@ -537,8 +602,11 @@ while 1
 
     end
     
+
+
     %% Redraw the frame if the world has been processed
     if frame_updated
+        CMD.speedUpdating = 0;
         set(MainCanvasHdl, 'CData', MainCanvas(1:200,:,:));
         if fall_to_bottom
             Bird.CurFrame = 2;
@@ -546,15 +614,13 @@ while 1
         refreshBird();
         refreshTubes();
         if (~gameover)
-            refreshFloor(CurrentFrameNo);
+            refreshFloor(GAME.CurrentFrameNo);
         end
 
         drawnow;
         frame_updated = false;
-
         
-        CMDENV_report()
-
+        CMDENV_report();
     end
     if fall_to_bottom
         if FlyKeyStatus
@@ -568,7 +634,12 @@ while 1
         clear all;
         return;
     end
+
+    DIAG.speedUpdating = CMD.speedUpdating;
+
+%     DIAG
 end
+
 end
 
     function initVariables()
@@ -578,7 +649,7 @@ end
         GAME.WINDOW_RES = [256 144];
         GAME.FLOOR_HEIGHT = 56;
         GAME.FLOOR_TOP_Y = GAME.RESOLUTION(1) - GAME.FLOOR_HEIGHT + 1;
-        GAME.N_UPDATE_PERSEC = 60/SET.slow;
+        GAME.N_UPDATE_PERSEC = 60*CMD.relativeSpeed;
         GAME.FRAME_DURATION = 1/GAME.N_UPDATE_PERSEC;
         
         TUBE.H_SPACE = 80;           % Horizontal spacing between two tubs
@@ -711,7 +782,7 @@ end
         
         IMG_initVisuElements();
         
-        showPrint('on')
+        PRINT_show('on')
     end
 %% Game Logic
     function processBird()
@@ -819,31 +890,23 @@ end
     function stl_KeyUp(hObject, eventdata, handles)
         keyU = get(hObject,'CurrentKey');
         % Remark the released keys as valid
-        FlyKeyValid = FlyKeyValid | strcmp(keyU, FlyKeyNames);
-
-        
+        FlyKeyValid = FlyKeyValid | strcmp(keyU, FlyKeyNames);        
     end
     function stl_KeyDown(hObject, eventdata, handles)
-        keyD = get(hObject,'CurrentKey');
-        
+        keyD = get(hObject,'CurrentKey');        
         % Has to be both 'pressed' and 'valid';
         % Two key presses at the same time will be counted as 1 key press
         down_keys = strcmp(keyD, FlyKeyNames);
         FlyKeyStatus = any(FlyKeyValid & down_keys);
-        FlyKeyValid = FlyKeyValid & (~down_keys);
-
-        
+        FlyKeyValid = FlyKeyValid & (~down_keys);        
     end
     function stl_KeyPressFcn(hObject, eventdata, handles)
         curKey = get(hObject, 'CurrentKey');
         switch true
             case strcmp(curKey, 'escape') 
                 CloseReq = true; 
-            case strcmp(curKey, FuzzyFlyKeyNames) 
-                CMD.Fuzzy = ~CMD.Fuzzy; 
-            case strcmp(curKey, RestartKeyNames) 
-                CMD_restart();
         end
+        BUTTONS_manager(curKey);
     end
     function stl_CloseReqFcn(hObject, eventdata, handles)
         CloseReq = true;
