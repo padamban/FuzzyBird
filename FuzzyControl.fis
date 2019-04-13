@@ -1,0 +1,58 @@
+[System]
+Name='FuzzyControl'
+Type='mamdani'
+Version=2.0
+NumInputs=3
+NumOutputs=1
+NumRules=6
+AndMethod='min'
+OrMethod='max'
+ImpMethod='min'
+AggMethod='max'
+DefuzzMethod='centroid'
+
+[Input1]
+Name='GapCenter'
+Range=[-300 300]
+NumMFs=5
+MF1='centered':'trimf',[-14.3 2.72417707150953 14.3]
+MF2='bellow':'trapmf',[36.7763904653801 102 307 500]
+MF3='above':'trapmf',[-330 -324 -99.4324631101022 -32]
+MF4='justBellow':'trimf',[3.4 36.8 76.9580022701475]
+MF5='justAbove':'trimf',[-73.5527809307605 -38.5 3.4]
+
+[Input2]
+Name='Altitude'
+Range=[0 300]
+NumMFs=3
+MF1='NearImpact':'trapmf',[-33.7 -7.33 14.8127128263337 33.5]
+MF2='FlyZone':'trapmf',[3.92 72.7 95.9 201.759364358683]
+MF3='OffScreen':'trapmf',[170.919139505973 200.681044267877 304.681044267877 306.681044267877]
+
+[Input3]
+Name='GapFront'
+Range=[-70 300]
+NumMFs=3
+MF1='VeryClose':'trapmf',[-71.9 -71.9 4.97 60.4029511918274]
+MF2='Close':'trimf',[-0.0737797956867468 51.2 127]
+MF3='Far':'trapmf',[62.082860385925 131 351 469]
+
+[Output1]
+Name='JumpTime'
+Range=[1 100]
+NumMFs=7
+MF1='upFast':'trapmf',[-34.6 -2.96 5.85 19.9880952380952]
+MF2='keep':'trimf',[32.0095238095238 37.0295238095238 42.2495238095238]
+MF3='downFast':'trapmf',[56.9 73.9 104.321428571429 128]
+MF4='up':'trimf',[7.15 18.6785714285714 31]
+MF5='down':'trimf',[44 55.3 67.9177071509648]
+MF6='upSlow':'trimf',[20.5119047619048 27.9 37.9]
+MF7='downSlow':'trimf',[39.1 45.3928571428571 50.4]
+
+[Rules]
+1 0 0, 2 (1) : 1
+2 0 0, 1 (1) : 1
+3 0 0, 5 (1) : 1
+4 0 0, 6 (1) : 1
+5 0 0, 7 (1) : 1
+0 1 0, 1 (1) : 1

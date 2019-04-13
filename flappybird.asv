@@ -4,35 +4,42 @@
 function flappybird
 
 %% System Variables:
-GameVer = '2.0';          % The first full playable game
-
-
-
+GameVer = '2.0';          
+% 2.0 - Controllable game
+% 1.0 - The first full playable game
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% CONTROL EXTENSION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Command keys.
+FuzzyFly_Key = {'uparrow'};
+Restart_Key = {'r'};
+GameSpeedUp_Key = {'add'};
+GameSpeedDown_Key = {'subtract'};
+PlotData_Key = {'p'};
+
 
 % Setup
 SET.colision = 0;       % enable colision
 SET.scanVisu = 1;       % Visualize the scanned values of CMDENV - 0, 1, 2
 SET.YTubeOffsetRange = 105;     % max     = 105
 SET.XTubeOffsetRange = 0;     % default = 0
-SET.XTubeOffsetMin = 80;        % default = 80 
-
+SET.XTubeOffsetMin = 60;        % default = 80 
 
 % Visu
-DOT.CData = [];
-DOT.Alpha = [];
-DOT.R = 2;
-DOT.Count = 30;
-RECT.CData = [];
-RECT.Alpha = [];
-RECT.Alpha2 = [];
-RECT.Count = 30;
-RECT.RectIdx = RECT.Count - 5;
-RECT.W = 0.3;
+DOT.CData = [];                 % rgb
+DOT.Alpha = [];                 % filled circle mask
+DOT.R = 2;                      % original radius, with scale = 1
+DOT.Count = 30;                 % n of initialized elements
+RECT.CData = [];                % rgb
+RECT.Alpha = [];                % filled rectangle mask
+RECT.Alpha2 = [];               % hollow rectangle mask
+RECT.Count = 30;                % n of initialized elements line + rects
+RECT.RectIdx = RECT.Count - 5;  % index from which rects start
+RECT.W = 0.3;                   % width of the line
 
-% Initalize the sh
+% Initalize the circles, rectangles and lines.
 function IMG_initShape()
     size = 77;       
     DOT.CData = uint8(zeros(size,size,3));
@@ -53,23 +60,9 @@ function IMG_initShape()
     w = 5;
     RECT.Alpha2(w:size-w+1, w:size-w+1) = 0;
 end
-  
-function IMG_initVisuElements()  
-    if SET.scanVisu > 0
-        for i = 1:DOT.Count
-            set(DotsHdl(i),'CData',DOT.CData, 'AlphaData',DOT.Alpha);
-        end
-        for i = 1:RECT.Count
-            if i < RECT.RectIdx 
-                set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha);
-            else
-                set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha2);
-            end
-        end
-    end
-end
 
-function IMG_initVisu()     
+% Initilaize visu element n many times. (Without shape info.)
+function IMG_initVisu()
     if SET.scanVisu > 0
         DotsHdl = zeros(1,DOT.Count);
         for i = 1:DOT.Count
@@ -86,11 +79,29 @@ function IMG_initVisu()
     end
 end
 
-function [i] = IMG_dot(i, x, y, s)
-    set(DotsHdl(i), 'XData', [x-DOT.R*s x+DOT.R*s], 'YData', [y-DOT.R*s y+DOT.R*s]);    
+% Set the shape infos off all of the initialized elements.
+function IMG_initVisuElements()  
+    if SET.scanVisu > 0
+        for i = 1:DOT.Count
+            set(DotsHdl(i),'CData',DOT.CData, 'AlphaData',DOT.Alpha);
+        end
+        for i = 1:RECT.Count
+            if i < RECT.RectIdx 
+                set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha);
+            else
+                set(LinesHdl(i),'CData',RECT.CData, 'AlphaData',RECT.Alpha2);
+            end
+        end
+    end
+end
+
+% Place a dot on canvas. (i is the instanciation index)
+function [i] = IMG_dot(i, x, y, scale)
+    set(DotsHdl(i), 'XData', [x-DOT.R*scale x+DOT.R*scale], 'YData', [y-DOT.R*scale y+DOT.R*scale]);    
     i = i + 1;
 end
 
+% Place a line or rect on canvas.
 function [i] = IMG_line(i, x, y, s, len, direction)
     d.all = 0;
     d.(direction) = len;
@@ -103,6 +114,49 @@ function [i] = IMG_line(i, x, y, s, len, direction)
     i = i + 1;    
 end
 
+% Gui texts.
+TEXT.th1 = [];
+TEXT.th2 = [];
+TEXT.counts = [8, 8];
+
+% Initalize texts.
+function PRINT_print_init()
+    x = 5;
+    y = 0;
+    dy = 9;
+    for ii=1:TEXT.counts(1)
+        y = y + dy;
+        TEXT.th1 = [TEXT.th1, text(x, y, '', 'Visible', 'off')];        
+    end    
+    y = y + dy/2;
+    for jj=1:TEXT.counts(2)
+        
+        y = y + dy;
+        TEXT.th2 = [TEXT.th2, text(x, y, '', 'Visible', 'off')];
+    end
+end
+
+% Print list of variables on gui.
+function PRINT_print(vars, th)
+    for i_var =1:length(vars)
+        if i_var<=length(th)          
+            set(th(i_var), 'String', sprintf('%s = %.2f', vars{i_var}, eval(vars{i_var})));            
+        end
+    end
+end
+
+% Change gui text visibility.
+function PRINT_show(onOff)
+    for i=1:length(TEXT.th1)
+        set( TEXT.th1(i) , 'Visible', onOff)
+    end         
+    for i=1:length(TEXT.th2)
+        set( TEXT.th2(i) , 'Visible', onOff)
+    end
+end
+
+
+% Command info.
 CMD.Fuzzy = 0;
 CMD.jumpCount = 0;
 CMD.timeToJump = 0;
@@ -111,6 +165,18 @@ CMD.jumpWait = 0;
 CMD.speedUpdating = 0;
 CMD.relativeSpeed = 1;  
 
+% Game diagnostics. 
+DIAG.Game = 0;
+DIAG.CurrentTime = 0;
+DIAG.FRAME_DURATION = 0;
+DIAG.timeToProcess = 0;
+DIAG.deltaToProcess = 0;
+DIAG.StageStartTime = 0;
+DIAG.CurrentFrameNo = 0;
+DIAG.speedUpdating = 0;
+
+
+% Scanned environment info.
 CMDENV.birdX = 0;
 CMDENV.birdY = 0;
 CMDENV.gapFront = ones(1,2)*1000;
@@ -126,12 +192,13 @@ CMDENV.overTube = false;
 CMDENV.coliding = false;
 CMDENV.gameover = false;
 
+% Reset scanned environment info.
 function CMD_reset()
     CMD.Fuzzy = 0;
     CMD.jumpCount = 0;
     CMD.timeToJump = 0;
     CMD.currTime = 0;
-    CMD.jumpWait = 38;
+    CMD.jumpWait = 30;
     CMDENV.birdX = 0;
     CMDENV.birdY = 0;
     CMDENV.gapFront = ones(1,2)*1000;
@@ -148,6 +215,8 @@ function CMD_reset()
     CMDENV.gameover = false;
 end
 
+
+% Scan environment.
 function CMDENV_scan()    
     if ~CMDENV.gameover
         screenHeight = 195;
@@ -185,6 +254,7 @@ function CMDENV_scan()
                 dotIDX = IMG_dot(dotIDX, Tubes.ScreenX(nextIndex), CMDENV.gapBottom(2), 0.5);
             end
         end
+        
     
         CMDENV.gapTop(1) = screenHeight - CMDENV.gapTop(1) - CMDENV.birdY;
         CMDENV.gapBottom(1) = screenHeight - CMDENV.gapBottom(1) - CMDENV.birdY;
@@ -231,15 +301,17 @@ function CMDENV_scan()
                 dotIDX = IMG_dot(dotIDX, x, y, 0.1);
             end
         end
+   
     end
-%     CMDENV
-%     Tubes
 end
 
+% Display variable values on GUI.
 function CMDENV_report()
     PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMD.relativeSpeed', 'CMD.speedUpdating' }, TEXT.th1);
 end
 
+% Count passed tubes. 
+% TODO: remove game logic
 function CMD_addScore()
     if Tubes.ScreenX(Tubes.FrontP) < 40 && Flags.NextTubeReady
         Flags.NextTubeReady = false;
@@ -247,6 +319,7 @@ function CMD_addScore()
     end
 end
 
+% Collision scanner.
 function CMD_colide()
     if ~CMDENV.gameover
         CMDENV.colisions = CMDENV.colisions + 1;
@@ -254,6 +327,7 @@ function CMD_colide()
     CMDENV.coliding = 1;
 end
 
+% Gameover scanner. 
 function CMD_gameover()
     CMDENV.coliding = 1;
     CMDENV.gameover = 1;
@@ -262,11 +336,14 @@ function CMD_gameover()
     end
 end
 
+% Flying scanner. 
 function CMD_fly()
     CMDENV.coliding = 0;
     CMDENV.gameover = 0;
 end
     
+
+% Restarts game in 3s. Skips pregame.
 function CMD_restart() 
     function press()
         FlyKeyStatus = 1;
@@ -284,6 +361,7 @@ function CMD_restart()
     end
 end
 
+% Scan and check if jump automatic jump should happen or not. 
 function [okJump] = CMD_Jump(currTime)
     okJump = 0;
     CMD.currTime = currTime;
@@ -294,15 +372,7 @@ function [okJump] = CMD_Jump(currTime)
     end
 end
 
-DIAG.Game = 0;
-DIAG.CurrentTime = 0;
-DIAG.FRAME_DURATION = 0;
-DIAG.timeToProcess = 0;
-DIAG.deltaToProcess = 0;
-DIAG.StageStartTime = 0;
-DIAG.CurrentFrameNo = 0;
-DIAG.speedUpdating = 0;
-
+% Add or subtract from game speed. (only in pregame)
 function CMD_setSpeedX(sign)
     if ~CMD.speedUpdating && Flags.PreGame
         step = 0.2;
@@ -317,61 +387,73 @@ function CMD_setSpeedX(sign)
 end
 
 
-TEXT.th1 = [];
-TEXT.th2 = [];
-TEXT.counts = [8, 8];
+PROCESSING.yNormRef = 190;
+PROCESSING.xNormRef = 80;
+INPUT.yGapCenter = 0;   % [-150 150]
+INPUT.yAltitude = 0;    % [0    200]
+INPUT.xGapFront = 0;
 
-function PRINT_print_init()
-    x = 5;
-    y = 0;
-    dy = 9;
-    for ii=1:TEXT.counts(1)
-        y = y + dy;
-        TEXT.th1 = [TEXT.th1, text(x, y, '', 'Visible', 'off')];        
-    end    
-    y = y + dy/2;
-    for jj=1:TEXT.counts(2)
-        
-        y = y + dy;
-        TEXT.th2 = [TEXT.th2, text(x, y, '', 'Visible', 'off')];
-    end
-end
 
-function PRINT_print(vars, th)
-    for i_var =1:length(vars)
-        if i_var<=length(th)          
-            set(th(i_var), 'String', sprintf('%s = %.2f', vars{i_var}, eval(vars{i_var})));            
-        end
-    end
-end
-
-function PRINT_show(onOff)
-    for i=1:length(TEXT.th1)
-        set( TEXT.th1(i) , 'Visible', onOff)
-    end         
-    for i=1:length(TEXT.th2)
-        set( TEXT.th2(i) , 'Visible', onOff)
-    end
+function CMD_PreProcesing()
+    INPUT.yGapCenter = CMDENV.gapCenter(1);
+    INPUT.yAltitude = CMDENV.birdY;
+    INPUT.xGapFront = CMDENV.gapFront(1);
+    PLOT.data = [PLOT.data INPUT.xGapFront];
+    
+%     INPUT
+%     INPUT.yGapCenter = CMDENV.gapCenter(1)/PROCESSING.yNormRef;
+%     INPUT.yAltitude = CMDENV.toGround/PROCESSING.yNormRef;
+%     INPUT.xGapFront = CMDENV.gapFront(1)/PROCESSING.xNormRef;
+%     INPUT
+%     CMDENV
+    
 end
 
 
 
+PLOT.name = 'NA';
+PLOT.data = [];
+PLOT.fig = 0;
+function PLOT_data()
+%     if PLOT.fig ~=0
+%         close(PLOT.fig)
+%     end
+    PLOT.fig = figure
+    y = PLOT.data;
+    x = 1:length(y);
 
-FuzzyFlyKeyNames = {'uparrow'};
-RestartKeyNames = {'r'};
-SpeedxAddKeyNames = {'add'};
-SpeedxSubtractKeyNames = {'subtract'};
 
-function BUTTONS_manager(key)
+    plot(x, y)
+
+
+end
+
+
+
+
+function CMD_Fuzzy()
+    input = [INPUT.yGapCenter];
+    fis = readfis('FuzzyControl');
+    output = evalfis(input, fis) 
+    CMD.jumpWait = output;
+end
+
+
+CMD_Pi
+
+
+function CMD_keyManager(key)
     switch true
-        case strcmp(key, FuzzyFlyKeyNames) 
+        case strcmp(key, FuzzyFly_Key) 
             CMD.Fuzzy = ~CMD.Fuzzy; 
-        case strcmp(key, RestartKeyNames) 
+        case strcmp(key, Restart_Key) 
             CMD_restart();
-        case strcmp(key, SpeedxAddKeyNames) 
+        case strcmp(key, GameSpeedUp_Key) 
             CMD_setSpeedX(1);
-        case strcmp(key, SpeedxSubtractKeyNames) 
-            CMD_setSpeedX(-1);           
+        case strcmp(key, GameSpeedDown_Key) 
+            CMD_setSpeedX(-1); 
+        case strcmp(key, PlotData_Key) 
+            PLOT_data();            
     end
 end
 
@@ -549,7 +631,7 @@ while 1
     DIAG.StageStartTime = GAME.StageStartTime;
     while (GAME.CurrentTime >= ((GAME.CurrentFrameNo) * GAME.FRAME_DURATION) && loops < GAME.MAX_FRAME_SKIP)
         
-        CMDENV_scan()
+        CMD_PipeLine()
 
         if FlyKeyStatus  % If left key is pressed    
             hop(gameover);
@@ -906,7 +988,7 @@ end
             case strcmp(curKey, 'escape') 
                 CloseReq = true; 
         end
-        BUTTONS_manager(curKey);
+        CMD_keyManager(curKey);
     end
     function stl_CloseReqFcn(hObject, eventdata, handles)
         CloseReq = true;
