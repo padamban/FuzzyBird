@@ -307,7 +307,9 @@ end
 
 % Display variable values on GUI.
 function CMDENV_report()
-    PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMD.relativeSpeed', 'CMD.speedUpdating' }, TEXT.th1);
+%     PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMD.relativeSpeed', 'CMD.speedUpdating','CMDENV.birdY', 'CMD.jumpWait' }, TEXT.th1);
+    PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMDENV.birdY', 'CMD.jumpWait' }, TEXT.th1);
+
 end
 
 % Count passed tubes. 
@@ -374,16 +376,17 @@ end
 
 % Add or subtract from game speed. (only in pregame)
 function CMD_setSpeedX(sign)
-    if ~CMD.speedUpdating && Flags.PreGame
-        step = 0.2;
-        speed = min(max(CMD.relativeSpeed + step*sign,step),30*step);
-        CMD.relativeSpeed = speed;    
-        GAME.N_UPDATE_PERSEC = 60*CMD.relativeSpeed;
-        GAME.FRAME_DURATION = 1/GAME.N_UPDATE_PERSEC;
-        GAME.CurrentFrameNo = GAME.CurrentFrameNo + sign*100;
-        CMD.speedUpdating = 1;
-        CMDENV_report();
-    end
+    CMD.jumpWait = CMD.jumpWait + sign*2;
+%     if ~CMD.speedUpdating && Flags.PreGame
+%         step = 0.2;
+%         speed = min(max(CMD.relativeSpeed + step*sign,step),30*step);
+%         CMD.relativeSpeed = speed;    
+%         GAME.N_UPDATE_PERSEC = 60*CMD.relativeSpeed;
+%         GAME.FRAME_DURATION = 1/GAME.N_UPDATE_PERSEC;
+%         GAME.CurrentFrameNo = GAME.CurrentFrameNo + sign*100;
+%         CMD.speedUpdating = 1;
+%         CMDENV_report();
+%     end
 end
 
 
@@ -430,10 +433,10 @@ end
 
 
 function CMD_Fuzzy()
-    input = [INPUT.yGapCenter, INPUT.yAltitude, INPUT.xGapFront]
+    input = [INPUT.yGapCenter, INPUT.yAltitude, INPUT.xGapFront];
     
     
-    fis = readfis('FuzzyControl');
+    fis = readfis('FuzzyControl3');
     output = evalfis(input, fis);
     CMD.jumpWait = output;
 end
@@ -704,7 +707,7 @@ while 1
         end
 
         drawnow;
-        frame_updated = false;
+         frame_updated = false;
         
         CMDENV_report();
     end

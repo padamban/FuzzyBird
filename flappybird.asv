@@ -25,7 +25,7 @@ SET.colision = 0;       % enable colision
 SET.scanVisu = 1;       % Visualize the scanned values of CMDENV - 0, 1, 2
 SET.YTubeOffsetRange = 105;     % max     = 105
 SET.XTubeOffsetRange = 0;     % default = 0
-SET.XTubeOffsetMin = 60;        % default = 80 
+SET.XTubeOffsetMin = 100;        % default = 80 
 
 % Visu
 DOT.CData = [];                 % rgb
@@ -198,7 +198,7 @@ function CMD_reset()
     CMD.jumpCount = 0;
     CMD.timeToJump = 0;
     CMD.currTime = 0;
-    CMD.jumpWait = 30;
+    CMD.jumpWait = 37;
     CMDENV.birdX = 0;
     CMDENV.birdY = 0;
     CMDENV.gapFront = ones(1,2)*1000;
@@ -235,7 +235,7 @@ function CMDENV_scan()
         towerGapNext = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(nextIndex);
         CMDENV.gapTop(1) = towerGap - 18;
         CMDENV.gapBottom(1) = towerGap + 32 ;
-        CMDENV.gapCenter(1) = towerGap + 7;    
+        CMDENV.gapCenter(1) = towerGap + 15;    
         CMDENV.gapTop(2) = towerGapNext - 18;
         CMDENV.gapBottom(2) = towerGapNext + 32 ;
         CMDENV.gapCenter(2) = towerGapNext + 7;
@@ -307,7 +307,9 @@ end
 
 % Display variable values on GUI.
 function CMDENV_report()
-    PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMD.relativeSpeed', 'CMD.speedUpdating' }, TEXT.th1);
+%     PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMD.relativeSpeed', 'CMD.speedUpdating','CMDENV.birdY', 'CMD.jumpWait' }, TEXT.th1);
+    PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMDENV.birdY', 'CMD.jumpWait' }, TEXT.th1);
+
 end
 
 % Count passed tubes. 
@@ -374,16 +376,17 @@ end
 
 % Add or subtract from game speed. (only in pregame)
 function CMD_setSpeedX(sign)
-    if ~CMD.speedUpdating && Flags.PreGame
-        step = 0.2;
-        speed = min(max(CMD.relativeSpeed + step*sign,step),30*step);
-        CMD.relativeSpeed = speed;    
-        GAME.N_UPDATE_PERSEC = 60*CMD.relativeSpeed;
-        GAME.FRAME_DURATION = 1/GAME.N_UPDATE_PERSEC;
-        GAME.CurrentFrameNo = GAME.CurrentFrameNo + sign*100;
-        CMD.speedUpdating = 1;
-        CMDENV_report();
-    end
+    CMD.jumpWait = CMD.jumpWait + sign*2;
+%     if ~CMD.speedUpdating && Flags.PreGame
+%         step = 0.2;
+%         speed = min(max(CMD.relativeSpeed + step*sign,step),30*step);
+%         CMD.relativeSpeed = speed;    
+%         GAME.N_UPDATE_PERSEC = 60*CMD.relativeSpeed;
+%         GAME.FRAME_DURATION = 1/GAME.N_UPDATE_PERSEC;
+%         GAME.CurrentFrameNo = GAME.CurrentFrameNo + sign*100;
+%         CMD.speedUpdating = 1;
+%         CMDENV_report();
+%     end
 end
 
 
@@ -398,7 +401,7 @@ function CMD_PreProcesing()
     INPUT.yGapCenter = CMDENV.gapCenter(1);
     INPUT.yAltitude = CMDENV.birdY;
     INPUT.xGapFront = CMDENV.gapFront(1);
-    PLOT.data = [PLOT.data INPUT.xGapFront];
+    PLOT.data = [PLOT.data INPUT.yAltitude];
     
 %     INPUT
 %     INPUT.yGapCenter = CMDENV.gapCenter(1)/PROCESSING.yNormRef;
@@ -429,17 +432,21 @@ function PLOT_data()
 end
 
 
-
-
 function CMD_Fuzzy()
-    input = [INPUT.yGapCenter];
-    fis = readfis('FuzzyControl');
-    output = evalfis(input, fis) 
+    input = [INPUT.yGapCenter, INPUT.yAltitude, INPUT.xGapFront];
+    
+    
+    fis = readfis('FuzzyControl2');
+    output = evalfis(input, fis);
     CMD.jumpWait = output;
 end
 
 
-CMD_Pi
+function CMD_PipeLine()    
+    CMDENV_scan()
+    CMD_PreProcesing()    
+    CMD_Fuzzy()
+end
 
 
 function CMD_keyManager(key)
@@ -700,7 +707,7 @@ while 1
         end
 
         drawnow;
-        frame_updated = false;
+         frame_updated = false;
         
         CMDENV_report();
     end
