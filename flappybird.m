@@ -3,13 +3,23 @@
 
 function flappybird
 
-%% System Variables:
-GameVer = '2.0';          
-% 2.0 - Controllable game
-% 1.0 - The first full playable game
+
+
+
+% 0.1 = fast; 1 = normal;  10 = slow;
+RUN.playSpeed = 10;         
+RUN.fis = 'FuzzyControl50';
+
+
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% CONTROL EXTENSION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
 
 
 % Command keys.
@@ -117,7 +127,7 @@ end
 % Gui texts.
 TEXT.th1 = [];
 TEXT.th2 = [];
-TEXT.counts = [8, 8];
+TEXT.counts = [5, 20];
 
 % Initalize texts.
 function PRINT_print_init()
@@ -163,7 +173,8 @@ CMD.timeToJump = 0;
 CMD.currTime = 0;
 CMD.jumpWait = 0;
 CMD.speedUpdating = 0;
-CMD.relativeSpeed = 1;  
+CMD.relativeSpeed = 3;  
+
 
 % Game diagnostics. 
 DIAG.Game = 0;
@@ -307,8 +318,10 @@ end
 
 % Display variable values on GUI.
 function CMDENV_report()
-%     PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMD.relativeSpeed', 'CMD.speedUpdating','CMDENV.birdY', 'CMD.jumpWait' }, TEXT.th1);
-    PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMDENV.birdY', 'CMD.jumpWait' }, TEXT.th1);
+
+    PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score' }, TEXT.th1);
+
+    PRINT_print({ 'INPUT.xGapFront', 'INPUT.yGapCenter','INPUT.yGapCenterNext','INPUT.yGapCenterDelta', 'INPUT.yAltitude', 'CMD.jumpWait' }, TEXT.th2);
 
 end
 
@@ -395,10 +408,18 @@ PROCESSING.xNormRef = 80;
 INPUT.yGapCenter = 0;   % [-150 150]
 INPUT.yAltitude = 0;    % [0    200]
 INPUT.xGapFront = 0;
+INPUT.yGapCenterNext = 0;
+INPUT.yGapCenterDelta = 0;
+INPUTHELP.yGapCenterPrev = 0;
 
 
 function CMD_PreProcesing()
+    INPUTHELP.yGapCenterDelta = 0;
+
+%     INPUT.yGapCenterDelta = 
     INPUT.yGapCenter = CMDENV.gapCenter(1);
+    INPUT.yGapCenterNext = CMDENV.gapCenter(2);
+
     INPUT.yAltitude = CMDENV.birdY;
     INPUT.xGapFront = CMDENV.gapFront(1);
     PLOT.data = [PLOT.data INPUT.yAltitude];
@@ -431,14 +452,18 @@ function PLOT_data()
 
 end
 
+hello = 0
 
 function CMD_Fuzzy()
-    input = [INPUT.yGapCenter, INPUT.yAltitude, INPUT.xGapFront];
+%     INPUT.yGapCenterDelta = INPUT.yGapCenter - INPUTHELP.yGapCenterPrev;
+    input = [INPUT.yGapCenter, INPUT.yAltitude, INPUT.xGapFront, INPUT.yGapCenterNext, INPUT.yGapCenterDelta];
     
     
-    fis = readfis('FuzzyControl3');
+    fis = readfis(RUN.fis);
     output = evalfis(input, fis);
     CMD.jumpWait = output;
+%     INPUTHELP.yGapCenterPrev = INPUT.yGapCenter;
+    hello = hello + 1
 end
 
 
@@ -479,6 +504,10 @@ end
 
 
 
+%% System Variables:
+GameVer = '2.0';          
+% 2.0 - Controllable game
+% 1.0 - The first full playable game
 
 
 
@@ -739,7 +768,7 @@ end
         GAME.FLOOR_HEIGHT = 56;
         GAME.FLOOR_TOP_Y = GAME.RESOLUTION(1) - GAME.FLOOR_HEIGHT + 1;
         GAME.N_UPDATE_PERSEC = 60*CMD.relativeSpeed;
-        GAME.FRAME_DURATION = 1/GAME.N_UPDATE_PERSEC;
+        GAME.FRAME_DURATION = (1/GAME.N_UPDATE_PERSEC)*RUN.playSpeed;
         
         TUBE.H_SPACE = 80;           % Horizontal spacing between two tubs
         TUBE.V_SPACE = 48;           % Vertical spacing between two tubs
