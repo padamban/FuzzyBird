@@ -1,0 +1,44 @@
+[System]
+Name='FuzzyControl77'
+Type='mamdani'
+Version=2.0
+NumInputs=3
+NumOutputs=1
+NumRules=2
+AndMethod='min'
+OrMethod='max'
+ImpMethod='min'
+AggMethod='max'
+DefuzzMethod='centroid'
+
+[Input1]
+Name='flying'
+Range=[-200 200]
+NumMFs=2
+MF1='above':'trapmf',[-344 -216 -184 -0]
+MF2='bellow':'trapmf',[0 184 216 344]
+
+[Input2]
+Name='trajectory'
+Range=[-25 5]
+NumMFs=2
+MF1='falling':'trapmf',[-30 -25 -5 0]
+MF2='ascending':'trapmf',[0 2 5 10]
+
+[Input3]
+Name='altitude'
+Range=[-30 500]
+NumMFs=2
+MF1='danger':'gauss2mf',[54.93 -71.33 15 0]
+MF2='ok':'trapmf',[25 100 300 400]
+
+[Output1]
+Name='CMD'
+Range=[-10 10]
+NumMFs=2
+MF1='jump':'trimf',[-18 -10 -2]
+MF2='wait':'trimf',[2 10 18]
+
+[Rules]
+0 0 1, 1 (1) : 1
+0 0 2, 2 (1) : 1

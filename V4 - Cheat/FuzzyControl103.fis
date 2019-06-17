@@ -1,0 +1,57 @@
+[System]
+Name='FuzzyControl103'
+Type='mamdani'
+Version=2.0
+NumInputs=3
+NumOutputs=1
+NumRules=8
+AndMethod='min'
+OrMethod='max'
+ImpMethod='min'
+AggMethod='max'
+DefuzzMethod='centroid'
+
+[Input1]
+Name='flying'
+Range=[-200 200]
+NumMFs=5
+MF1='aboveLot':'trapmf',[-344 -216 -184 -34.5062429057889]
+MF2='bellowLot':'trapmf',[36.3 169 202.951191827469 314]
+MF3='aboveJust':'trimf',[-78.1 -39.5005675368899 -1.49]
+MF4='center':'trimf',[-7.26 -0.487 8.17253121452893]
+MF5='bellowJust':'trimf',[3.14 39.9545970488081 84]
+
+[Input2]
+Name='trajectory'
+Range=[-25 5]
+NumMFs=3
+MF1='falling':'trapmf',[-30 -25 -10 -1]
+MF2='ascending':'trapmf',[0 2 5 10]
+MF3='gliding':'trimf',[-2 -1 0]
+
+[Input3]
+Name='altitude'
+Range=[-30 500]
+NumMFs=2
+MF1='danger':'gauss2mf',[54.93 -71.33 15 0]
+MF2='ok':'trapmf',[25 100 300 400]
+
+[Output1]
+Name='JumpLVL'
+Range=[-0.3 8]
+NumMFs=5
+MF1='0':'trimf',[-3.6 -0.278 -0.00323496027241776]
+MF2='4':'trimf',[4.647 6.078 7.95]
+MF3='1':'trimf',[0.0344494892167989 1.01 2.39]
+MF4='2':'trimf',[1.49 2.566 3.913]
+MF5='3':'trimf',[3.105 4.165 5.346]
+
+[Rules]
+2 1 0, 2 (1) : 1
+2 -1 0, 5 (1) : 1
+1 0 0, 1 (1) : 1
+3 2 0, 1 (1) : 1
+3 1 0, 4 (1) : 1
+3 3 0, 3 (1) : 1
+5 1 0, 5 (1) : 1
+3 2 0, 3 (1) : 1

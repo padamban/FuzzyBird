@@ -2,13 +2,13 @@
 
 
 function flappybird
-
+    
 
 
 
 % 0.1 = fast; 1 = normal;  10 = slow;
-RUN.playSpeed = 10;         
-RUN.fis = 'FuzzyControl43';
+RUN.playSpeed = 1;         
+RUN.fis = 'FuzzyControl106';
 
 
 
@@ -32,10 +32,10 @@ PlotData_Key = {'p'};
 
 % Setup
 SET.colision = 0;       % enable colision
-SET.scanVisu = 1;       % Visualize the scanned values of CMDENV - 0, 1, 2
+SET.scanVisu = 4;       % Visualize the scanned values of CMDENV - 0, 1, 2
 SET.YTubeOffsetRange = 105;     % max     = 105
-SET.XTubeOffsetRange = 0;     % default = 0
-SET.XTubeOffsetMin = 100;        % default = 80 
+SET.XTubeOffsetRange = 50;      % default = 0
+SET.XTubeOffsetMin = 70;        % default = 80 
 
 % Visu
 DOT.CData = [];                 % rgb
@@ -127,7 +127,7 @@ end
 % Gui texts.
 TEXT.th1 = [];
 TEXT.th2 = [];
-TEXT.counts = [8, 20];
+TEXT.counts = [5, 20];
 
 % Initalize texts.
 function PRINT_print_init()
@@ -173,7 +173,7 @@ CMD.timeToJump = 0;
 CMD.currTime = 0;
 CMD.jumpWait = 0;
 CMD.speedUpdating = 0;
-CMD.relativeSpeed = 3;  
+CMD.relativeSpeed = 1;  
 
 
 % Game diagnostics. 
@@ -244,12 +244,14 @@ function CMDENV_scan()
         CMDENV.overTube = CMDENV.gapFront(1) < 10;    
         towerGap = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(index);
         towerGapNext = GAME.FLOOR_TOP_Y - GAME.FLOOR_HEIGHT  - Tubes.VOffset(nextIndex);
+        
+        centerOffset = 10
         CMDENV.gapTop(1) = towerGap - 18;
         CMDENV.gapBottom(1) = towerGap + 32 ;
-        CMDENV.gapCenter(1) = towerGap + 15;    
+        CMDENV.gapCenter(1) = towerGap + centerOffset;    
         CMDENV.gapTop(2) = towerGapNext - 18;
         CMDENV.gapBottom(2) = towerGapNext + 32 ;
-        CMDENV.gapCenter(2) = towerGapNext + 7;
+        CMDENV.gapCenter(2) = towerGapNext + centerOffset;
 
         dotIDX = 1;
         lineIDX = 1;
@@ -307,7 +309,7 @@ function CMDENV_scan()
             end
         
             if CMDENV.overTube
-                dotIDX = IMG_dot(dotIDX, x, y, 4);
+%                 dotIDX = IMG_dot(dotIDX, x, y, 4);
             else
                 dotIDX = IMG_dot(dotIDX, x, y, 0.1);
             end
@@ -318,8 +320,10 @@ end
 
 % Display variable values on GUI.
 function CMDENV_report()
-%     PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'CMD.relativeSpeed', 'CMD.speedUpdating','CMDENV.birdY', 'CMD.jumpWait' }, TEXT.th1);
-    PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score', 'INPUT.xGapFront', 'INPUT.yGapCenter','INPUT.yGapCenterNext','INPUT.yGapCenterDelta', 'INPUT.yAltitude', 'CMD.jumpWait' }, TEXT.th2);
+
+    PRINT_print({ 'CMD.Fuzzy', 'CMDENV.colisions', 'CMDENV.jumps', 'CMDENV.score' }, TEXT.th1);
+
+    PRINT_print({ 'INPUT.xGapFront', 'INPUT.yGapCenter','INPUT.yGapCenterDelta', 'CMD.jumpWait', 'CMD.currTime', 'CMD.timeToJump','INPUT.yAltitude', 'INPUT.yAdjGapCenter', 'HANDICAP.it'}, TEXT.th2);
 
 end
 
@@ -450,18 +454,61 @@ function PLOT_data()
 
 end
 
-hello = 0
-
+INPUT.sinceLastShift = 100;
+TEMP.xGapFront = 0;
+INPUT.xPrevGapFront = -1;
+INPUT.yAdjGapCenterPos = 50;
+INPUT.yAdjGapCenter = 50;
+HANDICAP.i = -1;
+HANDICAP.it= 0;
+HANDICAP.cummulator= 0;
 function CMD_Fuzzy()
-%     INPUT.yGapCenterDelta = INPUT.yGapCenter - INPUTHELP.yGapCenterPrev;
-    input = [INPUT.yGapCenter, INPUT.yAltitude, INPUT.xGapFront, INPUT.yGapCenterNext];
+    HANDICAP.i = HANDICAP.i + 1;
+    if TEMP.xGapFront < 0 && 0 < INPUT.xGapFront
+        INPUT.xPrevGapFront = -1;
+    end
+    if INPUT.xPrevGapFront == 5 
+        INPUT.yAdjGapCenterPos = CMDENV.birdY + CMDENV.gapCenter(1);
+    end
     
+    INPUT.yAdjGapCenter = INPUT.yAdjGapCenterPos - CMDENV.birdY;
+    
+    INPUT.xPrevGapFront = INPUT.xPrevGapFront+1;   
+    TEMP.xGapFront = INPUT.xGapFront;
+    
+    INPUT.yGapCenterDelta = -(INPUT.yGapCenter - INPUTHELP.yGapCenterPrev);
+%     input = [INPUT.yGapCenter, INPUT.yAltitude, INPUT.xGapFront, INPUT.yGapCenterNext, INPUT.yGapCenterDelta];
+    input = [INPUT.yAdjGapCenter,  INPUT.yGapCenterDelta, INPUT.yAltitude];
+
+    
+    
+    delay = 20
     
     fis = readfis(RUN.fis);
     output = evalfis(input, fis);
-    CMD.jumpWait = output;
-%     INPUTHELP.yGapCenterPrev = INPUT.yGapCenter;
-    hello = hello + 1
+    CMD.HOP = output;
+%     CMD.jumpWait = output;
+    CMD.jumpWait= -1
+    CMD.jumpWait = delay;
+    
+%     if CMD.Fuzzy
+%         IMG_dot(20, Bird.ScreenPos(1), Bird.ScreenPos(2), 1);
+% 
+%             
+%         
+%         
+% %         HANDICAP.cummulator = 
+%         if mod(HANDICAP.i, 20)==0
+%             HANDICAP.it = HANDICAP.it + 1;
+%             if CMD.jumpWait>0 
+%                 IMG_dot(20, Bird.ScreenPos(1), Bird.ScreenPos(2), 4);
+%             else
+%                 IMG_dot(20, Bird.ScreenPos(1), Bird.ScreenPos(2), 6);
+%             end
+%             CMD.timeToJump = CMD.currTime + CMD.jumpWait;
+%         end
+%     end
+    INPUTHELP.yGapCenterPrev = INPUT.yGapCenter;
 end
 
 
@@ -624,9 +671,14 @@ PRINT_print_init();
 
 % Main Game
 
+
+CMD.HOP = 2.5
+
 function hop(gameover)
     if ~gameover
-        Bird.SpeedY = -2.5;
+        if CMD.HOP > 0
+            Bird.SpeedY = -CMD.HOP;
+        end
         FlyKeyStatus = false;
         Bird.LastHeight = Bird.ScreenPos(2);
         if Flags.PreGame
