@@ -35,7 +35,7 @@ SET.colision = 0;       % enable colision
 SET.scanVisu = 4;       % Visualize the scanned values of CMDENV - 0, 1, 2
 SET.YTubeOffsetRange = 105;     % max     = 105
 SET.XTubeOffsetRange = 0;      % default = 0
-SET.XTubeOffsetMin = 90;        % default = 90 
+SET.XTubeOffsetMin = 60;        % default = 80 
 
 % Visu
 DOT.CData = [];                 % rgb
